@@ -120,28 +120,51 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
     return product.images || [];
   }, [product.images, activeVariant]);
 
+  // Adjust selection if dependencies change and current choice is unavailable
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (selectedSize == null || !availableSizes.includes(selectedSize)) {
+        setSelectedSize(availableSizes[0] || null);
+      }
+
+      // Update main image if variant has one
+      const activeImg = activeVariant?.images?.[0] || activeVariant?.image;
+      if (activeImg) {
+        const variantImgIndex = (allImages || []).findIndex((img: string) => img === activeImg);
+        if (variantImgIndex !== -1) {
+          setSelectedImage(variantImgIndex);
+        }
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [selectedColor, selectedSize, availableSizes, activeVariant, allImages]);
+
   // Reset selected image when active variant changes to avoid out-of-bounds indices
   useEffect(() => {
-    setSelectedImage(0);
+    const timer = setTimeout(() => {
+      setSelectedImage(0);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [activeVariant]);
-
 
   // Auto-select first available options on mount or product change
   useEffect(() => {
     if (!product) return;
 
     const initialColor = uniqueColors[0] || null;
-    setSelectedColor(initialColor);
-
     const initialSizes = (product.variants || [])
       .filter((v: any) => !initialColor || v.color === initialColor)
       .map((v: any) => v.size)
       .filter(Boolean);
     const initialSize = initialSizes[0] || null;
-    setSelectedSize(initialSize);
 
-    setSelectedImage(0);
-    setQuantity(1);
+    const timer = setTimeout(() => {
+      setSelectedColor(initialColor);
+      setSelectedSize(initialSize);
+      setSelectedImage(0);
+      setQuantity(1);
+    }, 0);
 
     // Track ViewContent
     const viewContentPayload = {
@@ -165,12 +188,16 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
   // Fetch review eligibility separately to avoid unnecessary re-triggers
   useEffect(() => {
     if (!session?.user || !product?._id) {
-      setEligibility(null);
-      return;
+      const timer = setTimeout(() => {
+        setEligibility(null);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     const controller = new AbortController();
-    setEligibility(null); // Reset to avoid stale UI
+    const timer = setTimeout(() => {
+      setEligibility(null); // Reset to avoid stale UI
+    }, 0);
 
     async function checkEligibility() {
       try {
@@ -189,7 +216,10 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
     }
 
     checkEligibility();
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [product?._id, session]);
 
   // Handle scroll to review form when tab changes and scroll is requested
@@ -198,7 +228,10 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
       const element = document.getElementById('review-form');
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setShouldScrollToReviewForm(false);
+        const timer = setTimeout(() => {
+          setShouldScrollToReviewForm(false);
+        }, 0);
+        return () => clearTimeout(timer);
       } else {
         // If element not yet in DOM, retry briefly
         const timer = setTimeout(() => {
@@ -209,22 +242,6 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
       }
     }
   }, [activeTab, shouldScrollToReviewForm]);
-
-  // Adjust selection if dependencies change and current choice is unavailable
-  useEffect(() => {
-    if (selectedSize == null || !availableSizes.includes(selectedSize)) {
-      setSelectedSize(availableSizes[0] || null);
-    }
-
-    // Update main image if variant has one
-    const activeImg = activeVariant?.images?.[0] || activeVariant?.image;
-    if (activeImg) {
-      const variantImgIndex = (allImages || []).findIndex((img: string) => img === activeImg);
-      if (variantImgIndex !== -1) {
-        setSelectedImage(variantImgIndex);
-      }
-    }
-  }, [selectedColor, selectedSize, availableSizes, activeVariant, allImages]);
 
   const hasVariants = (uniqueColors.length > 0 || uniqueSizes.length > 0);
   const currentVariant = activeVariant || defaultVariant;
@@ -866,7 +883,7 @@ export default function ProductDetailsClient({ product }: ProductDetailsClientPr
           <DialogHeader>
             <DialogTitle className="text-xl">Delete Product</DialogTitle>
             <DialogDescription className="pt-2">
-              Are you sure you want to delete <span className="font-bold text-foreground">"{product.name}"</span>?
+              Are you sure you want to delete <span className="font-bold text-foreground">&quot;{product.name}&quot;</span>?
               This action cannot be undone and will remove all associated data including variants and reviews.
             </DialogDescription>
           </DialogHeader>

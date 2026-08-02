@@ -85,9 +85,15 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
       return variantImgs.length > 0 ? variantImgs : (product.images || []);
     }
     return product.images || [];
-  }, [product.images, product.variants, activeVariant?.image, hasVariants]);
+  }, [product.images, product.variants, activeVariant, hasVariants]);
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(false);
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
+  const [prevActiveVariant, setPrevActiveVariant] = useState<any>(null);
+
+  if (isOpen !== prevIsOpen || product?._id !== prevProductId) {
+    setPrevIsOpen(isOpen);
+    setPrevProductId(product?._id || null);
     if (isOpen) {
       const initialColor = uniqueColors[0] || null;
       setSelectedColor(initialColor);
@@ -101,8 +107,34 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
       setQuantity(1);
 
       const defaultVar = product.variants && product.variants.length > 0 ? product.variants[0] : null;
-      setActiveImage(defaultVar?.image || product.images?.[0] || '/placeholder.jpg');
+      const initialImg = defaultVar?.image || product.images?.[0] || '/placeholder.jpg';
+      setActiveImage(initialImg);
+      setPrevActiveVariant(defaultVar);
+    } else {
+      setSelectedColor(null);
+      setSelectedSize(null);
+      setQuantity(1);
+    }
+  }
 
+  // Handle selectedSize validation during render:
+  if (isOpen && (selectedSize == null || !availableSizes.includes(selectedSize))) {
+    setSelectedSize(availableSizes[0] || null);
+  }
+
+  // Handle activeImage sync with activeVariant during render:
+  if (isOpen && activeVariant !== prevActiveVariant) {
+    setPrevActiveVariant(activeVariant);
+    if (activeVariant?.image) {
+      setActiveImage(activeVariant.image);
+    } else if (hasVariants) {
+      const firstVarWithImg = (product.variants || []).find((v: any) => v.image);
+      setActiveImage(firstVarWithImg?.image || product.images?.[0] || '/placeholder.jpg');
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
       // Track ViewContent for Quick View
       const viewContentPayload = {
         content_name: product.name,
@@ -120,22 +152,12 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
       fbEvent('ViewContent', viewContentPayload, trackingUser);
       ttEvent('ViewContent', viewContentPayload, trackingUser);
     }
-  }, [isOpen, uniqueColors, product.variants, product.images, session, displayPrice, displaySalePrice]);
+  }, [isOpen, product._id, session, displayPrice, displaySalePrice, product.name, product.categories]);
 
-  useEffect(() => {
-    if (selectedSize == null || !availableSizes.includes(selectedSize)) {
-      setSelectedSize(availableSizes[0] || null);
-    }
-  }, [selectedColor, availableSizes]);
-
-  useEffect(() => {
-    if (activeVariant?.image) {
-      setActiveImage(activeVariant.image);
-    } else if (hasVariants) {
-      const firstVarWithImg = (product.variants || []).find((v: any) => v.image);
-      setActiveImage(firstVarWithImg?.image || product.images?.[0] || '/placeholder.jpg');
-    }
-  }, [activeVariant, hasVariants, product.variants, product.images]);
+  // Adjust quantity if it exceeds available stock
+  if (isOpen && displayStock > 0 && quantity > displayStock) {
+    setQuantity(displayStock);
+  }
 
   const router = useRouter();
 
@@ -353,7 +375,10 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                 </button>
                 <span className="w-10 text-center font-bold text-sm">{quantity}</span>
                 <button
-                  onClick={() => setQuantity(quantity + 1)}
+                  onClick={() => setQuantity(prev => {
+                    if (displayStock <= 0) return prev;
+                    return Math.min(displayStock, prev + 1);
+                  })}
                   className="px-4 py-2 hover:bg-gray-200 transition-colors"
                 >
                   <Plus className="h-3 w-3" />

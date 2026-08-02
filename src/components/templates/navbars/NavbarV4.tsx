@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
   ShoppingCart,
@@ -17,19 +16,15 @@ import {
   Settings,
   Package,
   Truck,
-  HelpCircle,
-  ChevronDown
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useAppSelector } from '@/store/hooks';
 import { CartDrawer } from '@/components/layout/CartDrawer';
 import { CategoryNav } from '@/components/layout/CategoryNav';
-import { AIChatbot } from '@/components/layout/AIChatbot';
 import { Logo } from '@/components/ui/logo';
 import { useSettings } from '@/components/SettingsProvider';
 import {
@@ -71,7 +66,6 @@ export default function NavbarV4() {
   const { data: session, status } = useSession();
   const { totalQuantity: cartCount, totalAmount } = useAppSelector((state) => state.cart);
   const { items: wishlistItems } = useAppSelector((state) => state.wishlist);
-  const settings = useSettings();
 
   const [categories, setCategories] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -115,7 +109,16 @@ export default function NavbarV4() {
           }
         });
     } else {
-      setProfile(null);
+      const timer = setTimeout(() => {
+        if (isMounted) {
+          setProfile((prev: any) => prev !== null ? null : prev);
+        }
+      }, 0);
+      return () => {
+        isMounted = false;
+        controller.abort();
+        clearTimeout(timer);
+      };
     }
 
     return () => {
@@ -147,32 +150,51 @@ export default function NavbarV4() {
 
   // Live search debounce
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     const trimmed = searchTerm.trim();
     if (!trimmed) {
-      setLiveResults([]);
-      setShowDropdown(false);
-      return;
+      debounceRef.current = setTimeout(() => {
+        if (active) {
+          setLiveResults([]);
+          setShowDropdown(false);
+        }
+      }, 0);
+      return () => {
+        active = false;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+      };
     }
 
     debounceRef.current = setTimeout(async () => {
+      if (!active) return;
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/products?search=${encodeURIComponent(trimmed)}&limit=6`);
-        if (res.ok) {
+        const res = await fetch(`/api/products?search=${encodeURIComponent(trimmed)}&limit=6`, {
+          signal: controller.signal,
+        });
+        if (res.ok && active) {
           const data = await res.json();
-          setLiveResults(data.products || []);
-          setShowDropdown(true);
+          if (active) {
+            setLiveResults(data.products || []);
+            setShowDropdown(true);
+          }
         }
       } catch {
         // silent fail
       } finally {
-        setIsSearching(false);
+        if (active) {
+          setIsSearching(false);
+        }
       }
     }, 400);
 
     return () => {
+      active = false;
+      controller.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [searchTerm]);

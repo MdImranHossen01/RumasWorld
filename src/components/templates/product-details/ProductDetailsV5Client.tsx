@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ShoppingCart, Heart, Minus, Plus, Star, MoreVertical, Edit, Trash2, Settings, Sparkles, Share2, ArrowRight, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,16 +45,20 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
   const isInWishlist = wishlist.includes(product?._id);
   const router = useRouter();
   const isAdmin = (session?.user as any)?.role === 'admin';
-
   const [quantity, setQuantity] = useState(1);
-  const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
-  const [selectedColor, setSelectedColor] = useState<string | null>(defaultVariant?.color || null);
-  const [selectedSize, setSelectedSize] = useState<string | null>(defaultVariant?.size || null);
-  const [activeImage, setActiveImage] = useState(
-    (product?.variants && product.variants.length > 0 ? product.variants[0]?.image : product?.images?.[0]) || '/placeholder.png'
-  );
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [userSelectedImage, setUserSelectedImage] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
+  if (product?._id !== prevProductId) {
+    setPrevProductId(product?._id);
+    setSelectedColor(null);
+    setSelectedSize(null);
+    setUserSelectedImage(null);
+  }
 
   const uniqueColors = useMemo(() =>
     Array.from(new Set((product.variants || []).map((v: any) => v.color))).filter(Boolean) as string[],
@@ -66,20 +70,27 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
     [product.variants]
   );
 
+  const currentColor = selectedColor !== null ? selectedColor : (uniqueColors[0] || null);
+
   const availableSizes = useMemo(() =>
     (product.variants || [])
-      .filter((v: any) => !selectedColor || v.color === selectedColor)
+      .filter((v: any) => !currentColor || v.color === currentColor)
       .map((v: any) => v.size)
       .filter(Boolean) as string[],
-    [product.variants, selectedColor]
+    [product.variants, currentColor]
   );
+
+  const currentSize = (selectedSize !== null && availableSizes.includes(selectedSize))
+    ? selectedSize
+    : (availableSizes[0] || null);
+
   const activeVariant = useMemo(() =>
     (product.variants || []).find(
       (v: any) =>
-        (v.color || null) === (selectedColor || null) &&
-        (v.size || null) === (selectedSize || null)
+        (v.color || null) === (currentColor || null) &&
+        (v.size || null) === (currentSize || null)
     ),
-    [product.variants, selectedColor, selectedSize]
+    [product.variants, currentColor, currentSize]
   );
 
   const allImages = useMemo(() => {
@@ -95,27 +106,11 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
     return product.images || [];
   }, [product.images, activeVariant]);
 
-  useEffect(() => {
-    if (allImages && allImages.length > 0) {
-      setActiveImage(allImages[0]);
-    } else {
-      setActiveImage('/placeholder.png');
-    }
-  }, [allImages]);
+  const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
 
-  useEffect(() => {
-    if (!product) return;
-    setSelectedColor(uniqueColors[0] || null);
-    setActiveImage(
-      (product.variants && product.variants.length > 0 ? product.variants[0]?.image : product.images?.[0]) || '/placeholder.png'
-    );
-  }, [product?._id, uniqueColors]);
-
-  useEffect(() => {
-    if (selectedSize == null || !availableSizes.includes(selectedSize)) {
-      setSelectedSize(availableSizes[0] || null);
-    }
-  }, [selectedColor, availableSizes]);
+  const activeImage = (userSelectedImage && allImages.includes(userSelectedImage))
+    ? userSelectedImage
+    : (allImages && allImages.length > 0 ? allImages[0] : '/placeholder.png');
 
   const hasVariants = (uniqueColors.length > 0 || uniqueSizes.length > 0);
   const currentVariant = activeVariant || defaultVariant;
@@ -133,8 +128,8 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
       basePrice: displayPrice,
       quantity: quantity,
       image: activeVariant?.image || (product.variants && product.variants.length > 0 ? product.variants[0]?.image : product.images?.[0]),
-      color: selectedColor || undefined,
-      size: selectedSize || undefined
+      color: currentColor || undefined,
+      size: currentSize || undefined
     }));
     toast.success(`Exclusive piece added to bag`);
   };
@@ -207,7 +202,7 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
             {allImages?.slice(0, 6).map((img: string, i: number) => (
                <button 
                   key={img}
-                  onClick={() => setActiveImage(img)}
+                  onClick={() => setUserSelectedImage(img)}
                   className={`relative h-20 w-20 rounded-2xl overflow-hidden border-4 transition-all duration-500 ${activeImage === img ? 'border-primary scale-110 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'}`}
                >
                   <Image src={img} alt={`Slide ${i + 1}`} fill className="object-cover" />
@@ -250,7 +245,6 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
             </p>
 
             <Separator />
-
             <div className="space-y-10">
                {uniqueColors.length > 0 && (
                   <div className="space-y-4">
@@ -259,8 +253,11 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
                         {uniqueColors.map((color) => (
                            <button 
                              key={color} 
-                             onClick={() => setSelectedColor(color)}
-                             className={`px-8 py-4 rounded-full border-2 transition-all font-black text-xs uppercase tracking-[0.2em] ${selectedColor === color ? 'border-primary bg-primary text-white shadow-2xl shadow-primary/30 scale-105' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
+                             onClick={() => {
+                               setSelectedColor(color);
+                               setUserSelectedImage(null);
+                             }}
+                             className={`px-8 py-4 rounded-full border-2 transition-all font-black text-xs uppercase tracking-[0.2em] ${currentColor === color ? 'border-primary bg-primary text-white shadow-2xl shadow-primary/30 scale-105' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
                            >
                               {color}
                            </button>
@@ -277,8 +274,11 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
                            <button 
                              key={size} 
                              disabled={!availableSizes.includes(size)}
-                             onClick={() => setSelectedSize(size)}
-                             className={`h-14 w-14 rounded-full border-2 flex items-center justify-center font-black text-xs transition-all ${selectedSize === size ? 'border-primary bg-primary text-white scale-110' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
+                             onClick={() => {
+                               setSelectedSize(size);
+                               setUserSelectedImage(null);
+                             }}
+                             className={`h-14 w-14 rounded-full border-2 flex items-center justify-center font-black text-xs transition-all ${currentSize === size ? 'border-primary bg-primary text-white scale-110' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
                            >
                               {size}
                            </button>
@@ -287,7 +287,7 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
                   </div>
                )}
             </div>
-
+            
             <div className="flex flex-col gap-6 pt-6">
                <div className="flex items-center gap-6">
                   <div className="flex items-center border-b border-neutral-100 dark:border-neutral-800 h-16 w-40">

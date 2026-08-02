@@ -85,39 +85,48 @@ export default function ShopClient({ initialProducts, initialCategories, searchP
   const [showOnlySale, setShowOnlySale] = useState(searchParams.get('filter') === 'sale');
   const [showOnlyFeatured, setShowOnlyFeatured] = useState(searchParams.get('filter') === 'featured');
   const [showOnlyTrending, setShowOnlyTrending] = useState(searchParams.get('filter') === 'trending');
+  
   const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page')) || 1);
   const itemsPerPage = 20;
 
-  // Sync with URL params (e.g. from Navbar search)
-  useEffect(() => {
-    const urlSearch = searchParams.get('search') || searchParams.get('q');
-    if (urlSearch !== null) {
+  // Track previous search params to sync state during render (avoids cascading renders)
+  const [prevSearchParamsStr, setPrevSearchParamsStr] = useState(searchParams.toString());
+  if (searchParams.toString() !== prevSearchParamsStr) {
+    setPrevSearchParamsStr(searchParams.toString());
+    const urlSearch = searchParams.get('search') || searchParams.get('q') || '';
+    if (urlSearch !== searchTerm) {
       setSearchTerm(urlSearch);
     }
-  }, [searchParams]);
-
-  // Sync page from URL parameter
-  useEffect(() => {
     const urlPage = Number(searchParams.get('page')) || 1;
     if (urlPage !== currentPage) {
       setCurrentPage(urlPage);
     }
-  }, [searchParams, currentPage]);
+  }
 
-  const skipClampRef = useRef(false);
+  // Track filters to reset page on render if they change
+  const currentFiltersStr = JSON.stringify({
+    selectedCategories,
+    minPrice,
+    maxPrice,
+    sortBy,
+    searchTerm,
+    showOnlyNew,
+    showOnlySale,
+    showOnlyFeatured,
+    showOnlyTrending
+  });
+  const [prevFiltersStr, setPrevFiltersStr] = useState(currentFiltersStr);
+  if (currentFiltersStr !== prevFiltersStr) {
+    setPrevFiltersStr(currentFiltersStr);
+    setCurrentPage(1);
+  }
+
   const isMounted = useRef(false);
 
   // Sync state to URL without full reload
   const setPageAndUrl = useCallback((page: number) => {
     setCurrentPage(page);
-    const params = new URLSearchParams(searchParams.toString());
-    if (page > 1) {
-      params.set('page', page.toString());
-    } else {
-      params.delete('page');
-    }
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [pathname, router, searchParams]);
+  }, []);
 
   // Reset page to 1 when filters change
   useEffect(() => {
@@ -125,12 +134,8 @@ export default function ShopClient({ initialProducts, initialCategories, searchP
       isMounted.current = true;
       return;
     }
-    skipClampRef.current = true;
-    setCurrentPage(1);
     
-    const params = new URLSearchParams(window.location.search);
-    params.delete('page');
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    setCurrentPage(1);
   }, [selectedCategories, minPrice, maxPrice, sortBy, searchTerm, showOnlyNew, showOnlySale, showOnlyFeatured, showOnlyTrending, pathname, router]);
 
   const filteredProducts = products
@@ -162,23 +167,33 @@ export default function ShopClient({ initialProducts, initialCategories, searchP
     });
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+  // Clamp page to valid range during render (avoids cascading renders in useEffect)
+  if (products.length > 0) {
+    const safePage = Math.max(1, Math.min(currentPage, totalPages || 1));
+    if (safePage !== currentPage) {
+      setCurrentPage(safePage);
+    }
+  }
+
+  // Sync URL when currentPage changes and does not match the URL parameter
+  useEffect(() => {
+    const urlPage = Number(searchParams.get('page')) || 1;
+    if (urlPage !== currentPage) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (currentPage > 1) {
+        params.set('page', currentPage.toString());
+      } else {
+        params.delete('page');
+      }
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    }
+  }, [currentPage, searchParams, pathname, router]);
+
   const paginatedProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  useEffect(() => {
-    if (skipClampRef.current) {
-      skipClampRef.current = false;
-      return;
-    }
-    if (products.length > 0) {
-      const safePage = Math.max(1, Math.min(currentPage, totalPages || 1));
-      if (safePage !== currentPage) {
-        setPageAndUrl(safePage);
-      }
-    }
-  }, [currentPage, totalPages, products.length, setPageAndUrl]);
 
   const toggleCategory = (slug: string) => {
     setSelectedCategories(prev =>

@@ -47,10 +47,16 @@ export default function HeroV2({ banners }: HeroSliderProps) {
 
   useEffect(() => {
     if (!emblaApi) return;
-    onSelect();
+    
+    // Defer the initial selection update to avoid synchronous setState during render/effect phase
+    const timeoutId = setTimeout(() => {
+      onSelect();
+    }, 0);
+
     emblaApi.on('select', onSelect);
     emblaApi.on('reInit', onSelect);
     return () => {
+      clearTimeout(timeoutId);
       emblaApi.off('select', onSelect);
       emblaApi.off('reInit', onSelect);
     };

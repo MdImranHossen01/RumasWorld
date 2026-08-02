@@ -54,7 +54,12 @@ export function QuickAddModal({ product, isOpen, onClose }: QuickAddModalProps) 
     [product.variants, selectedColor, selectedSize]
   );
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(false);
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
+
+  if (isOpen !== prevIsOpen || product?._id !== prevProductId) {
+    setPrevIsOpen(isOpen);
+    setPrevProductId(product?._id || null);
     if (isOpen) {
       const initialColor = uniqueColors[0] || null;
       setSelectedColor(initialColor);
@@ -65,14 +70,15 @@ export function QuickAddModal({ product, isOpen, onClose }: QuickAddModalProps) 
         .filter(Boolean);
       const initialSize = initialSizes[0] || null;
       setSelectedSize(initialSize);
+    } else {
+      setSelectedColor(null);
+      setSelectedSize(null);
     }
-  }, [isOpen, uniqueColors, product.variants]);
+  }
 
-  useEffect(() => {
-    if (selectedSize == null || !availableSizes.includes(selectedSize)) {
-      setSelectedSize(availableSizes[0] || null);
-    }
-  }, [selectedColor, selectedSize, availableSizes]);
+  if (isOpen && (selectedSize == null || !availableSizes.includes(selectedSize))) {
+    setSelectedSize(availableSizes[0] || null);
+  }
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();

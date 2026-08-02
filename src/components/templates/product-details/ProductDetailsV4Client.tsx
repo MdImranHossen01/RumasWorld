@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, Heart, Minus, Plus, Star, MoreVertical, Edit, Trash2, Settings, ShieldCheck, Clock, Share2, Tag, ShoppingBag } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ShoppingCart, Heart, Minus, Plus, Star, MoreVertical, ShieldCheck, Clock, Share2, Tag, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -18,7 +18,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { useRouter } from 'next/navigation';
 import {
@@ -48,12 +47,18 @@ export default function ProductDetailsV4Client({ product }: ProductDetailsV4Clie
   const isAdmin = (session?.user as any)?.role === 'admin';
 
   const [quantity, setQuantity] = useState(1);
-  const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
-  const [selectedColor, setSelectedColor] = useState<string | null>(defaultVariant?.color || null);
-  const [selectedSize, setSelectedSize] = useState<string | null>(defaultVariant?.size || null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
+
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
+  if (product?._id !== prevProductId) {
+    setPrevProductId(product?._id);
+    setSelectedColor(null);
+    setSelectedSize(null);
+  }
 
   const uniqueColors = useMemo(() =>
     Array.from(new Set((product.variants || []).map((v: any) => v.color))).filter(Boolean) as string[],
@@ -65,20 +70,27 @@ export default function ProductDetailsV4Client({ product }: ProductDetailsV4Clie
     [product.variants]
   );
 
+  const currentColor = selectedColor !== null ? selectedColor : (uniqueColors[0] || null);
+
   const availableSizes = useMemo(() =>
     (product.variants || [])
-      .filter((v: any) => !selectedColor || v.color === selectedColor)
+      .filter((v: any) => !currentColor || v.color === currentColor)
       .map((v: any) => v.size)
       .filter(Boolean) as string[],
-    [product.variants, selectedColor]
+    [product.variants, currentColor]
   );
+
+  const currentSize = (selectedSize !== null && availableSizes.includes(selectedSize))
+    ? selectedSize
+    : (availableSizes[0] || null);
+
   const activeVariant = useMemo(() =>
     (product.variants || []).find(
       (v: any) =>
-        (v.color || null) === (selectedColor || null) &&
-        (v.size || null) === (selectedSize || null)
+        (v.color || null) === (currentColor || null) &&
+        (v.size || null) === (currentSize || null)
     ),
-    [product.variants, selectedColor, selectedSize]
+    [product.variants, currentColor, currentSize]
   );
 
   const allImages = useMemo(() => {
@@ -94,6 +106,7 @@ export default function ProductDetailsV4Client({ product }: ProductDetailsV4Clie
     return product.images || [];
   }, [product.images, activeVariant]);
 
+  const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
   const hasVariants = (uniqueColors.length > 0 || uniqueSizes.length > 0);
   const currentVariant = activeVariant || defaultVariant;
 
@@ -101,22 +114,10 @@ export default function ProductDetailsV4Client({ product }: ProductDetailsV4Clie
   const displaySalePrice = hasVariants ? currentVariant?.salePrice : product.salePrice;
   const displayStock = hasVariants ? (currentVariant?.stock ?? 0) : (product.stock ?? 0);
 
-  useEffect(() => {
-    if (!product) return;
-    setSelectedColor(uniqueColors[0] || null);
-  }, [product?._id, uniqueColors]);
-
-  useEffect(() => {
-    if (selectedSize == null || !availableSizes.includes(selectedSize)) {
-      setSelectedSize(availableSizes[0] || null);
-    }
-  }, [selectedColor, availableSizes, selectedSize]);
-
-  useEffect(() => {
-    if (quantity > displayStock) {
-      setQuantity(Math.max(1, displayStock));
-    }
-  }, [displayStock, quantity]);
+  const activeQuantity = Math.max(1, Math.min(quantity, displayStock || 1));
+  if (quantity !== activeQuantity) {
+    setQuantity(activeQuantity);
+  }
 
   const handleAddToCart = () => {
     if (displayStock <= 0) {
@@ -137,8 +138,8 @@ export default function ProductDetailsV4Client({ product }: ProductDetailsV4Clie
       basePrice: displayPrice,
       quantity: quantity,
       image: activeVariant?.image || (product.variants && product.variants.length > 0 ? product.variants[0]?.image : product.images?.[0]),
-      color: selectedColor || undefined,
-      size: selectedSize || undefined
+      color: currentColor || undefined,
+      size: currentSize || undefined
     }));
     toast.success(`Item added to your collection`);
     return true;
@@ -275,7 +276,7 @@ export default function ProductDetailsV4Client({ product }: ProductDetailsV4Clie
                   <button
                     key={color}
                     onClick={() => setSelectedColor(color)}
-                    className={`h-12 px-6 rounded-2xl border-2 transition-all font-bold text-xs uppercase tracking-widest ${selectedColor === color ? 'border-primary bg-primary text-white shadow-xl shadow-primary/10' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
+                    className={`h-12 px-6 rounded-2xl border-2 transition-all font-bold text-xs uppercase tracking-widest ${currentColor === color ? 'border-primary bg-primary text-white shadow-xl shadow-primary/10' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
                   >
                     {color}
                   </button>
@@ -292,7 +293,7 @@ export default function ProductDetailsV4Client({ product }: ProductDetailsV4Clie
                     key={size}
                     disabled={!availableSizes.includes(size)}
                     onClick={() => setSelectedSize(size)}
-                    className={`h-12 w-12 rounded-2xl border-2 flex items-center justify-center font-black text-xs transition-all ${selectedSize === size ? 'border-primary bg-primary text-white shadow-lg' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
+                    className={`h-12 w-12 rounded-2xl border-2 flex items-center justify-center font-black text-xs transition-all ${currentSize === size ? 'border-primary bg-primary text-white shadow-lg' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
                   >
                     {size}
                   </button>

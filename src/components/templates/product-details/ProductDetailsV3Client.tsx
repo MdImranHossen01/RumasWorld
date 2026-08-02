@@ -35,9 +35,15 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
 
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
-  const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
-  const [selectedColor, setSelectedColor] = useState<string | null>(defaultVariant?.color || null);
-  const [selectedSize, setSelectedSize] = useState<string | null>(defaultVariant?.size || null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
+  if (product?._id !== prevProductId) {
+    setPrevProductId(product?._id || null);
+    setSelectedColor(null);
+    setSelectedSize(null);
+  }
 
   const uniqueColors = useMemo(() => 
     Array.from(new Set((product.variants || []).map((v: any) => v.color).filter(Boolean))) as any[],
@@ -49,33 +55,34 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
     [product.variants]
   );
 
+  const currentColor = selectedColor !== null ? selectedColor : (uniqueColors[0] || null);
+
   const availableSizes = useMemo(() => {
-    if (!selectedColor) return uniqueSizes;
+    if (!currentColor) return uniqueSizes;
     return (product.variants || [])
-      .filter((v: any) => v.color === selectedColor)
+      .filter((v: any) => v.color === currentColor)
       .map((v: any) => v.size)
       .filter(Boolean) as any[];
-  }, [product.variants, selectedColor, uniqueSizes]);
+  }, [product.variants, currentColor, uniqueSizes]);
 
-  useEffect(() => {
-    if (!product) return;
-    setSelectedColor(uniqueColors[0] || null);
-  }, [product?._id, uniqueColors]);
-
-  useEffect(() => {
-    if (selectedSize == null || !availableSizes.includes(selectedSize)) {
-      setSelectedSize(availableSizes[0] || null);
-    }
-  }, [selectedColor, availableSizes, selectedSize]);
+  const currentSize = (selectedSize !== null && availableSizes.includes(selectedSize))
+    ? selectedSize
+    : (availableSizes[0] || null);
 
   const activeVariant = useMemo(() => 
     (product.variants || []).find(
       (v: any) => 
-        (v.color || null) === (selectedColor || null) && 
-        (v.size || null) === (selectedSize || null)
+        (v.color || null) === (currentColor || null) && 
+        (v.size || null) === (currentSize || null)
     ),
-    [product.variants, selectedColor, selectedSize]
+    [product.variants, currentColor, currentSize]
   );
+
+  const [prevVariant, setPrevVariant] = useState<any>(null);
+  if (activeVariant !== prevVariant) {
+    setPrevVariant(activeVariant);
+    setSelectedImage(0);
+  }
 
   const allImages = useMemo(() => {
     if (activeVariant) {
@@ -90,10 +97,7 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
     return product.images || [];
   }, [product.images, activeVariant]);
 
-  useEffect(() => {
-    setSelectedImage(0);
-  }, [activeVariant]);
-
+  const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
   const hasVariants = (uniqueColors.length > 0 || uniqueSizes.length > 0);
   const currentVariant = activeVariant || defaultVariant;
 
@@ -110,8 +114,8 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
       basePrice: displayPrice,
       quantity: quantity,
       image: activeVariant?.image || (product.variants && product.variants.length > 0 ? product.variants[0]?.image : product.images?.[0]),
-      color: selectedColor || undefined,
-      size: selectedSize || undefined
+      color: currentColor || undefined,
+      size: currentSize || undefined
     }));
     toast.success(`${product.name} initialized in cart`);
   };
@@ -253,7 +257,7 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
                             <button 
                               key={color} 
                               onClick={() => setSelectedColor(color)}
-                              className={`group relative h-12 w-12 rounded-full p-1 border-2 transition-all ${selectedColor === color ? 'border-primary scale-110' : 'border-transparent hover:border-neutral-200'}`}
+                              className={`group relative h-12 w-12 rounded-full p-1 border-2 transition-all ${currentColor === color ? 'border-primary scale-110' : 'border-transparent hover:border-neutral-200'}`}
                             >
                                <div className="h-full w-full rounded-full border border-black/5 shadow-inner" style={{ backgroundColor: color }} />
                                <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] font-black opacity-0 group-hover:opacity-100 transition-opacity uppercase">{color}</span>
@@ -271,7 +275,7 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
                               key={size} 
                               disabled={!availableSizes.includes(size)}
                               onClick={() => setSelectedSize(size)}
-                              className={`h-10 w-10 rounded-xl border-2 flex items-center justify-center font-mono text-xs font-black transition-all ${selectedSize === size ? 'border-primary bg-primary text-white scale-110 shadow-lg' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary'}`}
+                              className={`h-10 w-10 rounded-xl border-2 flex items-center justify-center font-mono text-xs font-black transition-all ${currentSize === size ? 'border-primary bg-primary text-white scale-110 shadow-lg' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary'}`}
                             >
                                {size}
                             </button>

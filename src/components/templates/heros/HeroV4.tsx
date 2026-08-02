@@ -42,10 +42,16 @@ export default function HeroV4({ banners }: HeroV4Props) {
 
   useEffect(() => {
     if (!emblaApi) return;
-    onSelect();
+    
+    // Defer the initial selection update to avoid synchronous setState during render/effect phase
+    const timeoutId = setTimeout(() => {
+      onSelect();
+    }, 0);
+
     emblaApi.on('select', onSelect);
     emblaApi.on('reInit', onSelect);
     return () => {
+      clearTimeout(timeoutId);
       emblaApi.off('select', onSelect);
       emblaApi.off('reInit', onSelect);
     };
@@ -65,10 +71,16 @@ export default function HeroV4({ banners }: HeroV4Props) {
 
   useEffect(() => {
     if (!mobileEmblaApi) return;
-    onMobileSelect();
+    
+    // Defer the initial selection update to avoid synchronous setState during render/effect phase
+    const timeoutId = setTimeout(() => {
+      onMobileSelect();
+    }, 0);
+
     mobileEmblaApi.on('select', onMobileSelect);
     mobileEmblaApi.on('reInit', onMobileSelect);
     return () => {
+      clearTimeout(timeoutId);
       mobileEmblaApi.off('select', onMobileSelect);
       mobileEmblaApi.off('reInit', onMobileSelect);
     };

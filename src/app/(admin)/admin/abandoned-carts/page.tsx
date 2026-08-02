@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -103,8 +104,10 @@ function AbandonedCartsContent() {
   // Debounce product search inside manual order dialog
   useEffect(() => {
     if (!productSearch.trim()) {
-      setProductSearchResults([]);
-      return;
+      const timeoutId = setTimeout(() => {
+        setProductSearchResults([]);
+      }, 0);
+      return () => clearTimeout(timeoutId);
     }
     const delayDebounce = setTimeout(async () => {
       try {
@@ -383,10 +386,13 @@ function AbandonedCartsContent() {
   // Reset page to 1 when filters or search change
   useEffect(() => {
     if (currentPage > 1) {
-      setCurrentPage(1);
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete('page');
-      router.push(`/admin/abandoned-carts?${params.toString()}`);
+      const timer = setTimeout(() => {
+        setCurrentPage(1);
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('page');
+        router.push(`/admin/abandoned-carts?${params.toString()}`);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [debouncedSearch, dateFilter.from, dateFilter.to]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -394,7 +400,10 @@ function AbandonedCartsContent() {
   useEffect(() => {
     const pageFromParams = Math.max(1, parseInt(searchParams.get('page') || '1'));
     if (pageFromParams !== currentPage) {
-      setCurrentPage(pageFromParams);
+      const timer = setTimeout(() => {
+        setCurrentPage(pageFromParams);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -424,7 +433,10 @@ function AbandonedCartsContent() {
   };
 
   useEffect(() => {
-    fetchCarts(currentPage);
+    const timer = setTimeout(() => {
+      fetchCarts(currentPage);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [currentPage, debouncedSearch, dateFilter.from, dateFilter.to]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePageChange = (page: number) => {
@@ -458,7 +470,7 @@ function AbandonedCartsContent() {
         const err = await res.json().catch(() => ({}));
         toast.error(err.message || 'Failed to delete abandoned cart');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete abandoned cart');
     }
   };
@@ -682,9 +694,11 @@ function AbandonedCartsContent() {
                               return (
                                 <div key={idx} className="flex items-center gap-2 text-sm">
                                   {trustedImage && (
-                                    <img
+                                    <Image
                                       src={trustedImage}
                                       alt={item.name}
+                                      width={32}
+                                      height={32}
                                       className="h-8 w-8 object-cover rounded bg-muted shrink-0"
                                     />
                                   )}
@@ -925,7 +939,13 @@ function AbandonedCartsContent() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2">
                             {item.image && (
-                              <img src={item.image} alt={item.name} className="w-10 h-10 object-cover rounded border" />
+                              <Image
+                                src={item.image}
+                                alt={item.name}
+                                width={40}
+                                height={40}
+                                className="w-10 h-10 object-cover rounded border"
+                              />
                             )}
                             <div>
                               <p className="font-semibold text-sm leading-tight">{item.name}</p>

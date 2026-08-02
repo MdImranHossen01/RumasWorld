@@ -3,6 +3,7 @@ import NavbarV2 from './navbars/NavbarV2';
 import NavbarV3 from './navbars/NavbarV3';
 import NavbarV4 from './navbars/NavbarV4';
 import NavbarV5 from './navbars/NavbarV5';
+import NavbarAarong from './navbars/NavbarAarong';
 
 export const NavbarSelector = ({ style }: { style: string }) => {
   switch (style) {
@@ -11,6 +12,7 @@ export const NavbarSelector = ({ style }: { style: string }) => {
     case 'v3': return <NavbarV3 />;
     case 'v4': return <NavbarV4 />;
     case 'v5': return <NavbarV5 />;
+    case 'aarong': return <NavbarAarong />;
     default: return <NavbarV1 />;
   }
 };
@@ -21,6 +23,7 @@ import HeroV2 from './heros/HeroV2';
 import HeroV3 from './heros/HeroV3';
 import HeroV4 from './heros/HeroV4';
 import HeroV5 from './heros/HeroV5';
+import HeroAarong from './heros/HeroAarong';
 
 export const HeroSelector = ({ style, banners, layout }: { style: string, banners: any[], layout?: string }) => {
   switch (style) {
@@ -29,6 +32,7 @@ export const HeroSelector = ({ style, banners, layout }: { style: string, banner
     case 'v3': return <HeroV3 banners={banners} />;
     case 'v4': return <HeroV4 banners={banners} />;
     case 'v5': return <HeroV5 banners={banners} />;
+    case 'aarong': return <HeroAarong banners={banners} layout={layout} />;
     default: return <HeroV1 banners={banners} layout={layout} />;
   }
 };
@@ -40,6 +44,7 @@ import ProductCardV3 from './product-cards/ProductCardV3';
 import ProductCardV4 from './product-cards/ProductCardV4';
 import ProductCardV5 from './product-cards/ProductCardV5';
 import ProductCardV6 from './product-cards/ProductCardV6';
+import ProductCardAarong from './product-cards/ProductCardAarong';
 
 export const ProductCardSelector = ({ style, product, isFlashSale, priority, layout }: { style: string, product: any, isFlashSale?: boolean, priority?: boolean, layout?: string }) => {
   switch (style) {
@@ -49,6 +54,7 @@ export const ProductCardSelector = ({ style, product, isFlashSale, priority, lay
     case 'v4': return <ProductCardV4 product={product} isFlashSale={isFlashSale} />;
     case 'v5': return <ProductCardV5 product={product} isFlashSale={isFlashSale} />;
     case 'v6': return <ProductCardV6 product={product} isFlashSale={isFlashSale} priority={priority} layout={layout} />;
+    case 'aarong': return <ProductCardAarong product={product} isFlashSale={isFlashSale} priority={priority} layout={layout} />;
     default: return <ProductCardV1 product={product} isFlashSale={isFlashSale} />;
   }
 };
@@ -59,6 +65,7 @@ import CategoryV2 from './categories/CategoryV2';
 import CategoryV3 from './categories/CategoryV3';
 import CategoryV4 from './categories/CategoryV4';
 import CategoryV5 from './categories/CategoryV5';
+import CategoryAarong from './categories/CategoryAarong';
 
 export const CategorySelector = ({ style, categories }: { style: string, categories: any[] }) => {
   switch (style) {
@@ -67,6 +74,7 @@ export const CategorySelector = ({ style, categories }: { style: string, categor
     case 'v3': return <CategoryV3 categories={categories} />;
     case 'v4': return <CategoryV4 categories={categories} />;
     case 'v5': return <CategoryV5 categories={categories} />;
+    case 'aarong': return <CategoryAarong categories={categories} />;
     default: return <CategoryV1 categories={categories} />;
   }
 };

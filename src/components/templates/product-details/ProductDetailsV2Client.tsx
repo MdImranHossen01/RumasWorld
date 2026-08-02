@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ShoppingCart, Heart, Minus, Plus, Star, MoreVertical, Edit, Trash2, Settings, PlusCircle, ShieldCheck, Truck, RefreshCw, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +55,14 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
   const [isDeleting, setIsDeleting] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
 
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
+  if (product?._id !== prevProductId) {
+    setPrevProductId(product?._id || null);
+    setSelectedColor(null);
+    setSelectedSize(null);
+    setQuantity(1);
+  }
+
   const uniqueColors = useMemo(() =>
     Array.from(new Set((product.variants || []).map((v: any) => v.color))).filter(Boolean) as string[],
     [product.variants]
@@ -65,21 +73,31 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
     [product.variants]
   );
 
+  const currentColor = selectedColor !== null ? selectedColor : (uniqueColors[0] || null);
+
   const availableSizes = useMemo(() =>
     (product.variants || [])
-      .filter((v: any) => !selectedColor || v.color === selectedColor)
+      .filter((v: any) => !currentColor || v.color === currentColor)
       .map((v: any) => v.size)
       .filter(Boolean) as string[],
-    [product.variants, selectedColor]
+    [product.variants, currentColor]
   );
+
+  const currentSize = (selectedSize !== null && availableSizes.includes(selectedSize))
+    ? selectedSize
+    : (availableSizes[0] || null);
+
+  if (selectedSize !== currentSize) {
+    setSelectedSize(currentSize);
+  }
 
   const activeVariant = useMemo(() =>
     (product.variants || []).find(
       (v: any) =>
-        (v.color || null) === (selectedColor || null) &&
-        (v.size || null) === (selectedSize || null)
+        (v.color || null) === (currentColor || null) &&
+        (v.size || null) === (currentSize || null)
     ),
-    [product.variants, selectedColor, selectedSize]
+    [product.variants, currentColor, currentSize]
   );
 
   const allImages = useMemo(() => {
@@ -102,27 +120,14 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
   const displaySalePrice = hasVariants ? currentVariant?.salePrice : product.salePrice;
   const displayStock = hasVariants ? (currentVariant?.stock ?? 0) : (product.stock ?? 0);
 
-  useEffect(() => {
-    if (!product) return;
-    setSelectedColor(uniqueColors[0] || null);
-    setQuantity(1);
-  }, [product?._id, uniqueColors]);
-
-  useEffect(() => {
-    if (selectedSize == null || !availableSizes.includes(selectedSize)) {
-      setSelectedSize(availableSizes[0] || null);
-    }
-  }, [selectedColor, availableSizes, selectedSize]);
-
-  useEffect(() => {
-    if (quantity > displayStock) {
-      setQuantity(Math.max(1, displayStock));
-    }
-  }, [displayStock, quantity]);
+  const activeQuantity = Math.max(1, Math.min(quantity, displayStock || 1));
+  if (quantity !== activeQuantity) {
+    setQuantity(activeQuantity);
+  }
 
   const handleAddToCart = () => {
-    if (uniqueColors.length > 0 && !selectedColor) return toast.error('Select color');
-    if (uniqueSizes.length > 0 && !selectedSize) return toast.error('Select size');
+    if (uniqueColors.length > 0 && !currentColor) return toast.error('Select color');
+    if (uniqueSizes.length > 0 && !currentSize) return toast.error('Select size');
     
     if (displayStock <= 0) return toast.error('Out of stock');
     if (quantity > displayStock) {
@@ -138,8 +143,8 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
       basePrice: displayPrice,
       quantity: quantity,
       image: activeVariant?.image || (product.variants && product.variants.length > 0 ? product.variants[0]?.image : product.images?.[0]),
-      color: selectedColor || undefined,
-      size: selectedSize || undefined
+      color: currentColor || undefined,
+      size: currentSize || undefined
     }));
     toast.success(`Added ${product.name} to cart`);
     return true;
@@ -271,7 +276,7 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
                          <button 
                             key={color} 
                             onClick={() => setSelectedColor(color)}
-                            className={`px-6 py-3 rounded-full border-2 transition-all font-bold text-xs uppercase tracking-widest ${selectedColor === color ? 'border-primary bg-primary text-white shadow-xl shadow-primary/20 scale-105' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
+                            className={`px-6 py-3 rounded-full border-2 transition-all font-bold text-xs uppercase tracking-widest ${currentColor === color ? 'border-primary bg-primary text-white shadow-xl shadow-primary/20 scale-105' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
                          >
                             {color}
                          </button>
@@ -289,7 +294,7 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
                             key={size} 
                             disabled={!availableSizes.includes(size)}
                             onClick={() => setSelectedSize(size)}
-                            className={`h-12 w-12 rounded-2xl border-2 flex items-center justify-center transition-all font-black text-xs disabled:opacity-20 ${selectedSize === size ? 'border-primary bg-primary text-white scale-110 shadow-lg' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
+                            className={`h-12 w-12 rounded-2xl border-2 flex items-center justify-center transition-all font-black text-xs disabled:opacity-20 ${currentSize === size ? 'border-primary bg-primary text-white scale-110 shadow-lg' : 'border-neutral-100 dark:border-neutral-800 hover:border-primary/50'}`}
                          >
                             {size}
                          </button>
