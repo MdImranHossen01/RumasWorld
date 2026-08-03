@@ -15,38 +15,30 @@ interface CategoryShowcaseProps {
 }
 
 export default function CategoryAarong({ categories }: CategoryShowcaseProps) {
-  // Filter categories to main ones (no parent, or fallback to first few if none matches)
-  const displayCategories = categories && categories.length > 0 ? categories : [];
+  // Reverse main categories to display them in chronological order (Women to Wedding)
+  const displayCategories = categories && categories.length > 0 ? [...categories].reverse() : [];
 
   return (
-    <section className="py-12 bg-background">
-      <div className="container mx-auto px-4 lg:px-8">
+    <section className="bg-background">
+      <div className="w-full px-4 lg:px-6">
         
-        {/* Title */}
-        <div className="text-center mb-10">
-          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-[0.2em] text-foreground font-playfair">
-            Shop by Category
-          </h2>
-          <div className="h-[2px] w-12 bg-primary mx-auto mt-3" />
-        </div>
-
-        {/* Aarong style Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {/* Aarong style Grid with minimal padding & gap */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 lg:gap-3 pt-2 pb-4">
           {displayCategories.map((category) => (
             <Link
               key={category._id}
               href={`/shop?category=${encodeURIComponent(category.slug)}`}
-              className="group block overflow-hidden border border-border/40 hover:border-primary/50 transition-all duration-300 shadow-sm hover:shadow-md"
+              className="group block overflow-hidden transition-all duration-300"
             >
               {/* Image Container */}
-              <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+              <div className="relative aspect-square overflow-hidden bg-muted">
                 {category.image ? (
                   <Image
                     src={category.image}
                     alt={category.name}
                     fill
                     sizes="(max-width: 640px) 50vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-muted/40 text-muted-foreground uppercase tracking-widest text-[10px] font-bold">
@@ -56,8 +48,8 @@ export default function CategoryAarong({ categories }: CategoryShowcaseProps) {
               </div>
 
               {/* Title Strip underneath */}
-              <div className="bg-background py-4 px-3 text-center border-t border-border/30">
-                <h3 className="font-black text-xs sm:text-sm text-foreground uppercase tracking-[0.15em] transition-colors group-hover:text-primary">
+              <div className="bg-background py-3 text-center">
+                <h3 className="font-bold text-xs sm:text-sm text-foreground uppercase tracking-[0.15em] transition-colors group-hover:text-primary">
                   {category.name}
                 </h3>
               </div>

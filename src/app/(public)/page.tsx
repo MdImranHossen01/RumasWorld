@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Metadata } from 'next';
 import { ArrowRight, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
@@ -12,6 +12,7 @@ import GlobalSettings from '@/models/GlobalSettings';
 import Coupon from '@/models/Coupon';
 import dynamic from 'next/dynamic';
 import { HeroSlider } from '@/components/storefront/HeroSlider';
+import { AarongPromoBanners } from '@/components/storefront/AarongPromoBanners';
 import { FreeDeliveryBanner } from '@/components/storefront/FreeDeliveryBanner';
 import {
   SectionSkeleton,
@@ -240,6 +241,9 @@ export default async function Home() {
             {/* 4. Categories Showcase */}
             <CategoryShowcase categories={data.categories} style={ui.categories} />
 
+            {/* Aarong Promotional Banners Section */}
+            <AarongPromoBanners />
+
             {/* 8. Featured Products */}
             {data.featuredProducts.length > 0 && (
               <ProductCarouselSection
@@ -321,6 +325,9 @@ export default async function Home() {
 
           {/* 4. Categories Showcase */}
           <CategoryShowcase categories={data.categories} style={ui.categories} />
+
+          {/* Aarong Promotional Banners Section */}
+          <AarongPromoBanners />
 
           {/* 8. Featured Products */}
           {data.featuredProducts.length > 0 && (
