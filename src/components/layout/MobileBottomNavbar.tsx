@@ -50,13 +50,37 @@ export function MobileBottomNavbar() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
     if (session) {
-      fetch('/api/user/profile')
-        .then(res => res.json())
-        .then(data => setProfile(data))
-        .catch(err => console.error('Failed to fetch profile', err));
+      if (!profile) {
+        fetch('/api/user/profile', { signal: controller.signal })
+          .then(res => {
+            if (!res.ok) return null;
+            return res.json();
+          })
+          .then(data => {
+            if (isMounted && data) setProfile(data);
+          })
+          .catch(err => {
+            if (err.name !== 'AbortError') {
+              console.error('Failed to fetch profile', err);
+            }
+          });
+      }
+    } else {
+      if (profile !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setProfile(null);
+      }
     }
-  }, [session]);
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [session, profile]);
 
   const accountHref = session ? '/dashboard' : '/login';
 

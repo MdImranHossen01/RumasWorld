@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -49,28 +49,62 @@ export default function NavbarV3() {
 
   useEffect(() => {
     if (session) {
-      fetch('/api/user/profile')
-        .then(res => res.json())
-        .then(data => setProfile(data))
-        .catch(err => console.error('Failed to fetch profile', err));
+      if (!profile) {
+        fetch('/api/user/profile')
+          .then(res => res.json())
+          .then(data => setProfile(data))
+          .catch(err => console.error('Failed to fetch profile', err));
+      }
     } else {
-      setProfile(null);
+      if (profile !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setProfile(null);
+      }
     }
-  }, [session]);
+  }, [session, profile]);
 
   // Live search debounce
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = searchTerm.trim();
-    if (!trimmed) { setLiveResults([]); setShowDropdown(false); return; }
-    debounceRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const res = await fetch(`/api/products?search=${encodeURIComponent(trimmed)}&limit=6`);
-        if (res.ok) { const data = await res.json(); setLiveResults(data.products || []); setShowDropdown(true); }
-      } catch { /* silent */ } finally { setIsSearching(false); }
-    }, 400);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    if (!trimmed) {
+      debounceRef.current = setTimeout(() => {
+        if (active) {
+          setLiveResults([]);
+          setShowDropdown(false);
+          setIsSearching(false);
+        }
+      }, 0);
+    } else {
+      debounceRef.current = setTimeout(async () => {
+        if (!active) return;
+        setIsSearching(true);
+        try {
+          const res = await fetch(`/api/products?search=${encodeURIComponent(trimmed)}&limit=6`, {
+            signal: controller.signal
+          });
+          if (res.ok && active) {
+            const data = await res.json();
+            setLiveResults(data.products || []);
+            setShowDropdown(true);
+          }
+        } catch {
+          /* silent */
+        } finally {
+          if (active) {
+            setIsSearching(false);
+          }
+        }
+      }, 400);
+    }
+    return () => {
+      active = false;
+      controller.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [searchTerm]);
 
   useEffect(() => {

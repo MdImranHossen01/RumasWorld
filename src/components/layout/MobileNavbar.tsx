@@ -37,15 +37,37 @@ export function MobileNavbar({ navItems, categories }: MobileNavbarProps) {
   const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
     if (status === 'authenticated') {
-      fetch('/api/user/profile')
-        .then(res => res.json())
-        .then(data => setProfile(data))
-        .catch(err => console.error('Failed to fetch profile', err));
+      if (!profile) {
+        fetch('/api/user/profile', { signal: controller.signal })
+          .then(res => {
+            if (!res.ok) return null;
+            return res.json();
+          })
+          .then(data => {
+            if (isMounted && data) setProfile(data);
+          })
+          .catch(err => {
+            if (err.name !== 'AbortError') {
+              console.error('Failed to fetch profile', err);
+            }
+          });
+      }
     } else {
-      setProfile(null);
+      if (profile !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setProfile(null);
+      }
     }
-  }, [status]);
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [status, profile]);
 
   return (
     <header className="lg:hidden sticky top-0 z-50 w-full bg-background border-b shadow-sm">

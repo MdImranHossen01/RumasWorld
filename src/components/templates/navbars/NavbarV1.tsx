@@ -17,12 +17,10 @@ import {
   Settings,
   Package,
   Truck,
-  HelpCircle,
-  ChevronDown
+
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ModeToggle } from '@/components/mode-toggle';
@@ -101,28 +99,33 @@ export default function Navbar() {
     const controller = new AbortController();
 
     if (status === 'authenticated') {
-      fetch('/api/user/profile', { signal: controller.signal })
-        .then(res => {
-          if (!res.ok) return null;
-          return res.json();
-        })
-        .then(data => {
-          if (isMounted && data) setProfile(data);
-        })
-        .catch(err => {
-          if (err.name !== 'AbortError') {
-            console.warn('Could not load user profile data');
-          }
-        });
+      if (!profile) {
+        fetch('/api/user/profile', { signal: controller.signal })
+          .then(res => {
+            if (!res.ok) return null;
+            return res.json();
+          })
+          .then(data => {
+            if (isMounted && data) setProfile(data);
+          })
+          .catch(err => {
+            if (err.name !== 'AbortError') {
+              console.warn('Could not load user profile data');
+            }
+          });
+      }
     } else {
-      setProfile(null);
+      if (profile !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setProfile(null);
+      }
     }
 
     return () => {
       isMounted = false;
       controller.abort();
     };
-  }, [status]);
+  }, [status, profile]);
 
   // Voice Search Cleanup
   useEffect(() => {
@@ -147,17 +150,46 @@ export default function Navbar() {
 
   // Live search debounce
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = searchTerm.trim();
-    if (!trimmed) { setLiveResults([]); setShowDropdown(false); return; }
-    debounceRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const res = await fetch(`/api/products?search=${encodeURIComponent(trimmed)}&limit=6`);
-        if (res.ok) { const data = await res.json(); setLiveResults(data.products || []); setShowDropdown(true); }
-      } catch { /* silent */ } finally { setIsSearching(false); }
-    }, 400);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    if (!trimmed) {
+      debounceRef.current = setTimeout(() => {
+        if (active) {
+          setLiveResults([]);
+          setShowDropdown(false);
+          setIsSearching(false);
+        }
+      }, 0);
+    } else {
+      debounceRef.current = setTimeout(async () => {
+        if (!active) return;
+        setIsSearching(true);
+        try {
+          const res = await fetch(`/api/products?search=${encodeURIComponent(trimmed)}&limit=6`, {
+            signal: controller.signal
+          });
+          if (res.ok && active) {
+            const data = await res.json();
+            setLiveResults(data.products || []);
+            setShowDropdown(true);
+          }
+        } catch {
+          /* silent */
+        } finally {
+          if (active) {
+            setIsSearching(false);
+          }
+        }
+      }, 400);
+    }
+    return () => {
+      active = false;
+      controller.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [searchTerm]);
 
   useEffect(() => {
@@ -367,9 +399,9 @@ export default function Navbar() {
 
             {/* Logo (Centered in desktop, Left-ish in mobile) */}
             <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 flex items-center justify-center">
-              <Logo 
-                imageClassName="md:size-16" 
-                textClassName="text-lg md:text-3xl whitespace-nowrap" 
+              <Logo
+                imageClassName="md:size-16"
+                textClassName="text-lg md:text-3xl whitespace-nowrap"
                 sizes="(max-width: 768px) 24px, 64px"
               />
             </div>

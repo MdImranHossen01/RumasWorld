@@ -52,34 +52,33 @@ export default function NavbarV5() {
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | null = null;
 
     if (session) {
-      fetch('/api/user/profile', { signal: controller.signal })
-        .then(res => res.json())
-        .then(data => {
-          if (active) {
-            setProfile(data);
-          }
-        })
-        .catch(err => {
-          if (err.name !== 'AbortError') {
-            console.error('Failed to fetch profile', err);
-          }
-        });
+      if (!profile) {
+        fetch('/api/user/profile', { signal: controller.signal })
+          .then(res => res.json())
+          .then(data => {
+            if (active) {
+              setProfile(data);
+            }
+          })
+          .catch(err => {
+            if (err.name !== 'AbortError') {
+              console.error('Failed to fetch profile', err);
+            }
+          });
+      }
     } else {
-      timer = setTimeout(() => {
-        if (active) {
-          setProfile(null);
-        }
-      }, 0);
+      if (profile !== null && active) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setProfile(null);
+      }
     }
     return () => {
       active = false;
       controller.abort();
-      if (timer) clearTimeout(timer);
     };
-  }, [session]);
+  }, [session, profile]);
 
   // Live search debounce
   useEffect(() => {
