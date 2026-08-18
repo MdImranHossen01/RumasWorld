@@ -15,7 +15,8 @@ import {
   Megaphone,
   Store,
   Mail,
-  CreditCard
+  CreditCard,
+  Monitor
 } from "lucide-react"
 import { Logo } from "@/components/ui/logo"
 
@@ -132,6 +133,10 @@ const data = {
         {
           title: "Banners",
           url: "/admin/cms/banners",
+        },
+        {
+          title: "Landing Pages",
+          url: "/admin/landing-pages",
         },
         {
           title: "Testimonials",
