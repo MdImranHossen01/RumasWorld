@@ -16,6 +16,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AdminTableSkeleton } from '@/components/admin/AdminSkeletons';
 import {
   Table,
   TableBody,
@@ -156,14 +158,22 @@ function BlogsContent() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    <span>Loading blogs...</span>
-                  </div>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-10 w-16 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-48 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24 rounded" /></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : filteredBlogs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
@@ -243,9 +253,18 @@ function BlogsContent() {
         {/* Mobile View */}
         <div className="block md:hidden divide-y divide-border">
           {loading ? (
-            <div className="py-8 flex flex-col items-center justify-center gap-2">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground font-medium">Loading blogs...</p>
+            <div className="space-y-3 p-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-3 border rounded-xl space-y-2.5 animate-pulse">
+                  <div className="flex items-start gap-3">
+                    <Skeleton className="h-16 w-24 rounded" />
+                    <div className="space-y-1.5 flex-1">
+                      <Skeleton className="h-4 w-3/4 rounded" />
+                      <Skeleton className="h-3 w-1/2 rounded" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredBlogs.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
@@ -347,12 +366,7 @@ function BlogsContent() {
 }
 export default function BlogsPage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col gap-4 pt-6">
-        <div className="h-8 w-32 bg-muted animate-pulse rounded" />
-        <div className="h-64 bg-muted animate-pulse rounded" />
-      </div>
-    }>
+    <Suspense fallback={<AdminTableSkeleton rowCount={6} columnCount={6} titleWidth="w-48" />}>
       <BlogsContent />
     </Suspense>
   );

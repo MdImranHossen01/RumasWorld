@@ -1,4 +1,4 @@
-﻿import Navbar from '@/components/layout/Navbar';
+import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Marquee } from '@/components/layout/Marquee';
 import { getCachedSettings } from '@/lib/data-fetching';
@@ -37,7 +37,7 @@ export default async function PublicLayout({ children }: { children: React.React
   return (
     <>
       {showBlocker && <SubscriptionBlocker brandName={settings?.brandName || 'Rumas World'} />}
-      {ui.layout !== 'v2' && <Marquee marqueeText={marqueeText} />}
+      {ui.layout !== 'v2' && ui.layout !== 'aarong' && ui.navbar !== 'aarong' && <Marquee marqueeText={marqueeText} />}
       <Navbar style={ui.navbar} />
       <main className="flex-1 pb-16 md:pb-0">{children}</main>
       <Footer style={ui.footer} />

@@ -13,6 +13,7 @@ import {
     Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AdminFormSkeleton } from '@/components/admin/AdminSkeletons';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -158,11 +159,7 @@ export default function EditBlogPage() {
   };
 
   if (loading) {
-      return (
-          <div className="flex h-[60vh] items-center justify-center">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          </div>
-      );
+      return <AdminFormSkeleton titleWidth="w-48" />;
   }
 
   return (

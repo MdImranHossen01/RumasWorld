@@ -15,6 +15,8 @@ import { Plus, Edit, Trash, Loader2, Search, DatabaseZap, Download, MoreHorizont
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AdminTableSkeleton } from '@/components/admin/AdminSkeletons';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -383,11 +385,30 @@ function ProductsContent() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-4 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-12 w-12 rounded-md" /></TableCell>
+                  <TableCell>
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-40 rounded" />
+                      <Skeleton className="h-3 w-20 rounded" />
+                    </div>
+                  </TableCell>
+                  <TableCell><Skeleton className="h-4 w-16 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-10 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-10 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : filteredProducts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="h-24 text-center">
@@ -487,8 +508,19 @@ function ProductsContent() {
         {/* Mobile View */}
         <div className="block md:hidden divide-y divide-border px-2">
           {loading ? (
-            <div className="py-12 text-center">
-              <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+            <div className="space-y-3 py-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="py-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <Skeleton className="h-10 w-10 rounded-lg" />
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-32 rounded" />
+                      <Skeleton className="h-3 w-20 rounded" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-14 rounded" />
+                </div>
+              ))}
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">
@@ -597,12 +629,7 @@ function ProductsContent() {
 
 export default function ProductsPage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col gap-4 pt-6">
-        <div className="h-8 w-32 bg-muted animate-pulse rounded" />
-        <div className="h-64 bg-muted animate-pulse rounded" />
-      </div>
-    }>
+    <Suspense fallback={<AdminTableSkeleton rowCount={7} columnCount={8} titleWidth="w-48" />}>
       <ProductsContent />
     </Suspense>
   );

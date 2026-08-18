@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, Suspense, useCallback } from 'react';
+import { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Plus, Trash, Edit, Search, MoreHorizontal, Loader2, SlidersHorizontal } from 'lucide-react';
+import { Plus, Trash, Edit, Search, MoreHorizontal, Loader2, Check, X, ArrowDownCircle, ArrowUpCircle, Wallet, Clock, SlidersHorizontal } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AdminTableSkeleton } from '@/components/admin/AdminSkeletons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -26,6 +28,7 @@ import { toast } from 'sonner';
 import Swal from 'sweetalert2';
 import { Pagination } from '@/components/ui/pagination';
 import { Input } from '@/components/ui/input';
+import { useSession } from 'next-auth/react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,51 +46,80 @@ import {
 function ExpensesIncomesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+
+  const userRole = (session?.user as any)?.role;
+  const isAdmin = ['admin', 'super_admin'].includes(userRole);
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
-  
+
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   const initialType = (searchParams.get('type') as 'all' | 'expense' | 'income') || 'all';
   const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income'>(initialType);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Approved' | 'Pending' | 'Rejected'>('all');
   const [dateFilter, setDateFilter] = useState(() => {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     return {
-      from: format(start, 'yyyy-MM-dd'),
-      to: format(end, 'yyyy-MM-dd')
+      from: format(firstDay, 'yyyy-MM-dd'),
+      to: format(lastDay, 'yyyy-MM-dd'),
     };
   });
-
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [filterByDate, setFilterByDate] = useState(true);
-  
+
   const initialPage = Math.max(1, parseInt(searchParams.get('page') || '1'));
   const [currentPage, setCurrentPage] = useState(initialPage);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // Sync state changes to URL query parameters
+  const prevFilters = useRef({ searchTerm, typeFilter, statusFilter, filterByDate, from: dateFilter.from, to: dateFilter.to });
+
+  // Sync state changes and handle page reset when filters change
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (currentPage > 1) {
-      params.set('page', currentPage.toString());
-    } else {
-      params.delete('page');
-    }
-    if (typeFilter !== 'all') {
-      params.set('type', typeFilter);
-    } else {
-      params.delete('type');
-    }
-    router.push(`/admin/expenses-incomes?${params.toString()}`);
-  }, [currentPage, typeFilter]);
+    const filtersChanged =
+      prevFilters.current.searchTerm !== searchTerm ||
+      prevFilters.current.typeFilter !== typeFilter ||
+      prevFilters.current.statusFilter !== statusFilter ||
+      prevFilters.current.filterByDate !== filterByDate ||
+      prevFilters.current.from !== dateFilter.from ||
+      prevFilters.current.to !== dateFilter.to;
 
-  const fetchTransactions = useCallback(async () => {
+    let targetPage = currentPage;
+    if (filtersChanged) {
+      targetPage = 1;
+      setCurrentPage(1);
+      prevFilters.current = { searchTerm, typeFilter, statusFilter, filterByDate, from: dateFilter.from, to: dateFilter.to };
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    const newPage = targetPage > 1 ? targetPage.toString() : '';
+    const newType = typeFilter !== 'all' ? typeFilter : '';
+
+    const currentType = searchParams.get('type') || '';
+    const currentPageParam = searchParams.get('page') || '';
+
+    if (newType !== currentType || newPage !== currentPageParam) {
+      if (newPage) {
+        params.set('page', newPage);
+      } else {
+        params.delete('page');
+      }
+      if (newType) {
+        params.set('type', newType);
+      } else {
+        params.delete('type');
+      }
+      router.push(`/admin/expenses-incomes?${params.toString()}`);
+    }
+  }, [currentPage, searchTerm, typeFilter, statusFilter, dateFilter.from, dateFilter.to, searchParams, router]);
+
+  const fetchTransactions = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const res = await fetch('/api/admin/expenses-incomes');
       if (!res.ok) throw new Error('Failed to fetch transactions');
       const data = await res.json();
@@ -97,35 +129,30 @@ function ExpensesIncomesContent() {
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchTransactions();
   }, []);
 
-  useEffect(() => {
-    const loadData = async () => {
-      await fetchTransactions();
-    };
-    loadData();
-  }, [fetchTransactions]);
-
-  useEffect(() => {
-    const handleOpenAdd = () => {
-      setEditingTransaction(null);
-      setIsDialogOpen(true);
-    };
-    window.addEventListener('open-add-transaction', handleOpenAdd);
-    
-    // Also check query param if we just redirected here
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('add') === 'true') {
-      handleOpenAdd();
-      // clean up query param without reload
-      const newUrl = window.location.pathname;
-      window.history.replaceState({ path: newUrl }, '', newUrl);
+  const handleUpdateStatus = async (id: string, status: 'Approved' | 'Rejected') => {
+    try {
+      const res = await fetch(`/api/admin/expenses-incomes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        toast.success(`Transaction status updated to ${status}`);
+        fetchTransactions();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.message || 'Failed to update status');
+      }
+    } catch (err) {
+      toast.error('Something went wrong');
     }
-
-    return () => {
-      window.removeEventListener('open-add-transaction', handleOpenAdd);
-    };
-  }, []);
+  };
 
   const handleDelete = async (id: string) => {
     const result = await Swal.fire({
@@ -155,7 +182,8 @@ function ExpensesIncomesContent() {
   const filteredTransactions = transactions.filter((tx) => {
     const term = searchTerm.toLowerCase();
     const title = tx.title?.toLowerCase() || '';
-    const matchesSearch = title.includes(term);
+    const showroomName = tx.showroom?.name?.toLowerCase() || '';
+    const matchesSearch = title.includes(term) || showroomName.includes(term);
 
     let matchesDate = true;
     if (filterByDate) {
@@ -172,7 +200,12 @@ function ExpensesIncomesContent() {
       matchesType = (tx.type || 'expense') === typeFilter;
     }
 
-    return matchesSearch && matchesDate && matchesType;
+    let matchesStatus = true;
+    if (statusFilter !== 'all') {
+      matchesStatus = (tx.status || 'Approved') === statusFilter;
+    }
+
+    return matchesSearch && matchesDate && matchesType && matchesStatus;
   });
 
   const ITEMS_PER_PAGE = 20;
@@ -185,7 +218,8 @@ function ExpensesIncomesContent() {
   const overviewTransactions = transactions.filter((tx) => {
     const term = searchTerm.toLowerCase();
     const title = tx.title?.toLowerCase() || '';
-    const matchesSearch = title.includes(term);
+    const showroomName = tx.showroom?.name?.toLowerCase() || '';
+    const matchesSearch = title.includes(term) || showroomName.includes(term);
 
     let matchesDate = true;
     if (filterByDate) {
@@ -200,30 +234,41 @@ function ExpensesIncomesContent() {
     return matchesSearch && matchesDate;
   });
 
+  // Totals only include Approved transactions (or old transactions with no status, defaults to Approved)
   const totalIncome = overviewTransactions
-    .filter((tx) => tx.type === 'income')
+    .filter((tx) => tx.type === 'income' && (tx.status === 'Approved' || !tx.status))
     .reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
   const totalExpense = overviewTransactions
-    .filter((tx) => tx.type === 'expense' || !tx.type)
+    .filter((tx) => (tx.type === 'expense' || !tx.type) && (tx.status === 'Approved' || !tx.status))
     .reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
-  const isFiltered = !!((filterByDate && (dateFilter.from || dateFilter.to)) || searchTerm || typeFilter !== 'all');
+  const netBalance = totalIncome - totalExpense;
+
+  const pendingTransactions = overviewTransactions.filter((tx) => tx.status === 'Pending');
+  const pendingCount = pendingTransactions.length;
+  const pendingAmount = pendingTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+  const isFiltered = !!(
+    (filterByDate && (dateFilter.from || dateFilter.to)) ||
+    searchTerm ||
+    statusFilter !== 'all' ||
+    typeFilter !== 'all'
+  );
 
   return (
-    <div className="flex-1 space-y-6 px-0 py-4 md:p-8">
-      <div className="flex items-center justify-between gap-2 border-b pb-4">
-        <div className="space-y-0.5">
-          <h2 className="text-lg sm:text-2xl font-bold tracking-tight">Expenses & Incomes</h2>
-          <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm hidden xs:block">Track ads, rent, salary, sales, investments, and other costs or revenues.</p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight font-heading">Expenses & Incomes</h1>
+          <p className="text-muted-foreground text-xs md:text-sm">Track ads, rent, salary, sales, investments, and other costs or revenues.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger render={<Button onClick={() => setEditingTransaction(null)} className="font-bold bg-primary text-primary-foreground h-9 px-3 text-xs sm:text-sm shrink-0" />}>
-            <Plus className="mr-1 h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Add Record</span>
-            <span className="inline sm:hidden">Add Bill</span>
+          <DialogTrigger render={<Button onClick={() => setEditingTransaction(null)} className="h-9 w-9 p-0 md:h-10 md:w-auto md:px-4 shrink-0" />}>
+            <Plus className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Add Record</span>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[480px] w-full">
+          <DialogContent className="sm:max-w-[480px] w-full animate-in fade-in duration-200 max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingTransaction ? 'Edit' : 'Add'} Transaction</DialogTitle>
             </DialogHeader>
@@ -240,112 +285,101 @@ function ExpensesIncomesContent() {
         </Dialog>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid gap-2 sm:gap-4 grid-cols-2">
-        {/* Total Income Card */}
-        <Card className="bg-primary/5 border-primary/10 border-l-2 border-l-primary relative overflow-hidden group h-full min-h-[85px] sm:min-h-0 shadow-sm hover:shadow transition-shadow">
-          {/* Mobile Layout */}
-          <div className="flex flex-col p-2.5 sm:hidden justify-between h-full gap-2 items-center text-center">
-            <div className="flex-1 flex items-center justify-center">
-              <span className="text-sm font-black text-primary leading-none">
-                ৳{totalIncome.toLocaleString()}
-              </span>
+      {/* Overview Card (TallyPay Inspired) */}
+      <Card className="relative overflow-hidden rounded-2xl border-none md:border bg-transparent md:bg-card shadow-none md:shadow-sm p-0 md:p-6">
+        {/* 3 Cards in 1 Row */}
+        <div className="grid grid-cols-3 gap-2 md:gap-6">
+          {/* Income Card */}
+          <div className="flex flex-col items-center text-center p-1 md:p-2 rounded-xl hover:bg-muted/50 transition-colors group relative">
+            <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 mb-2">
+              <ArrowDownCircle className="h-5 w-5 md:h-6 md:w-6" />
             </div>
-            <span className="text-[10px] font-bold text-zinc-600 leading-tight mt-auto">
+            <span className="text-[9px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate max-w-full">
               Total Income
             </span>
-          </div>
-          {/* Desktop Layout */}
-          <div className="hidden sm:block">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-              <CardTitle className="text-sm font-semibold leading-tight">Total Income</CardTitle>
-              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center font-bold text-xs text-primary">৳</div>
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="text-lg md:text-2xl font-extrabold text-primary">৳{totalIncome.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">
-                {isFiltered ? 'Selected range inflow' : 'All-time total inflow'}
-              </p>
-            </CardContent>
-          </div>
-        </Card>
-
-        {/* Total Expense Card */}
-        <Card className="bg-primary/5 border-primary/10 border-l-2 border-l-primary relative overflow-hidden group h-full min-h-[85px] sm:min-h-0 shadow-sm hover:shadow transition-shadow">
-          {/* Mobile Layout */}
-          <div className="flex flex-col p-2.5 sm:hidden justify-between h-full gap-2 items-center text-center">
-            <div className="flex-1 flex items-center justify-center">
-              <span className="text-sm font-black text-primary leading-none">
-                ৳{totalExpense.toLocaleString()}
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-zinc-600 leading-tight mt-auto">
-              Total Expense
+            <span className="text-xs md:text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+              ৳{Math.round(totalIncome)}
+            </span>
+            <span className="text-[7px] md:text-[9px] text-muted-foreground mt-1 truncate max-w-full">
+              {isFiltered ? 'Filtered inflow' : 'Approved total'}
             </span>
           </div>
-          {/* Desktop Layout */}
-          <div className="hidden sm:block">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-              <CardTitle className="text-sm font-semibold leading-tight">Total Expense</CardTitle>
-              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center font-bold text-xs text-primary">৳</div>
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="text-lg md:text-2xl font-extrabold text-primary">৳{totalExpense.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">
-                {isFiltered ? 'Selected range outflow' : 'All-time total outflow'}
-              </p>
-            </CardContent>
-          </div>
-        </Card>
-      </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4">
-            <div className="flex items-center justify-between w-full lg:w-auto">
-              <CardTitle>All Transactions</CardTitle>
-              {/* Mobile Filter Toggle Button */}
-              <div className="block lg:hidden">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowMobileFilters(!showMobileFilters)}
-                  className={`h-9 px-3 ${showMobileFilters ? 'bg-primary/10 text-primary border-primary/20' : ''}`}
-                >
-                  <SlidersHorizontal className="mr-2 h-4 w-4" />
-                  Filters
-                  {isFiltered && (
-                    <span className="ml-1.5 flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                  )}
-                </Button>
-              </div>
+          {/* Expense Card */}
+          <div className="flex flex-col items-center text-center p-1 md:p-2 rounded-xl hover:bg-muted/50 transition-colors group relative">
+            <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-500 mb-2">
+              <ArrowUpCircle className="h-5 w-5 md:h-6 md:w-6" />
             </div>
+            <span className="text-[9px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate max-w-full">
+              Total Expense
+            </span>
+            <span className="text-xs md:text-lg font-bold text-rose-600 dark:text-rose-400 mt-0.5">
+              ৳{Math.round(totalExpense)}
+            </span>
+            <span className="text-[7px] md:text-[9px] text-muted-foreground mt-1 truncate max-w-full">
+              {isFiltered ? 'Filtered outflow' : 'Approved total'}
+            </span>
+          </div>
 
-            {/* Desktop & Collapsible Mobile Filters Wrapper */}
-            <div className={`grid transition-all duration-300 ease-in-out lg:block w-full ${
-              showMobileFilters 
-                ? 'grid-rows-[1fr] opacity-100 mt-3 visible' 
-                : 'grid-rows-[0fr] opacity-0 invisible lg:visible lg:opacity-100 lg:grid-rows-none'
-            }`}>
-              <div className="overflow-hidden flex flex-col lg:flex-row items-stretch lg:items-center gap-2 w-full lg:w-auto">
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search title..."
-                    className="pl-8 h-8 text-xs w-full"
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  />
-                </div>
-                
-                <Select value={typeFilter} onValueChange={(val: any) => {
-                  setTypeFilter(val);
-                  setCurrentPage(1);
-                }}>
-                  <SelectTrigger className="w-full sm:w-36 h-8 text-xs">
+          {/* Pending Requests Card */}
+          <div className="flex flex-col items-center text-center p-1 md:p-2 rounded-xl hover:bg-muted/50 transition-colors group relative">
+            <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-500 mb-2">
+              <Clock className="h-5 w-5 md:h-6 md:w-6" />
+            </div>
+            <span className="text-[9px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate max-w-full">
+              Pending
+            </span>
+            <span className="text-xs md:text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+              {pendingCount} Records
+            </span>
+            <span className="text-[7px] md:text-[9px] text-muted-foreground mt-1 truncate max-w-full">
+              ৳{Math.round(pendingAmount)} pending
+            </span>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="border-none md:border bg-transparent md:bg-card shadow-none md:shadow-sm">
+        <CardHeader className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 px-0 md:px-6">
+          <div className="flex items-center justify-between w-full lg:w-auto">
+            <CardTitle>All Transactions</CardTitle>
+            {/* Mobile Filter Toggle Button */}
+            <div className="block lg:hidden">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMobileFilters(!showMobileFilters)}
+                className={`h-9 px-3 ${showMobileFilters ? 'bg-primary/10 text-primary border-primary/20' : ''}`}
+              >
+                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                Filters
+                {isFiltered && (
+                  <span className="ml-1.5 flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Desktop & Collapsible Mobile Filters Wrapper */}
+          <div className={`grid transition-all duration-300 ease-in-out lg:block w-full ${
+            showMobileFilters 
+              ? 'grid-rows-[1fr] opacity-100 mt-3 visible' 
+              : 'grid-rows-[0fr] opacity-0 invisible lg:visible lg:opacity-100 lg:grid-rows-none'
+          }`}>
+            <div className="overflow-hidden flex flex-col lg:flex-row items-stretch lg:items-center gap-2 w-full lg:w-auto">
+              <div className="relative w-full lg:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search title, showroom..."
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto">
+                <Select value={typeFilter} onValueChange={(val: any) => setTypeFilter(val)}>
+                  <SelectTrigger className="w-full lg:w-36">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -355,7 +389,20 @@ function ExpensesIncomesContent() {
                   </SelectContent>
                 </Select>
 
-                {/* Date Filter Checkbox & Date Inputs */}
+                <Select value={statusFilter} onValueChange={(val: any) => setStatusFilter(val)}>
+                  <SelectTrigger className="w-full lg:w-36">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
                 <div className="flex items-center gap-1.5 text-xs">
                   <label className="flex items-center gap-1 cursor-pointer font-bold text-foreground shrink-0 select-none">
                     <input
@@ -372,10 +419,7 @@ function ExpensesIncomesContent() {
                       type="date"
                       className="h-7 border-none bg-transparent focus-visible:ring-0 p-0.5 text-xs md:w-28 font-medium"
                       value={dateFilter.from}
-                      onChange={(e) => {
-                        setDateFilter(prev => ({ ...prev, from: e.target.value }));
-                        setCurrentPage(1);
-                      }}
+                      onChange={(e) => setDateFilter((prev: any) => ({ ...prev, from: e.target.value }))}
                       disabled={!filterByDate}
                     />
                     <span className="text-muted-foreground text-[10px] shrink-0 font-medium">to</span>
@@ -383,10 +427,7 @@ function ExpensesIncomesContent() {
                       type="date"
                       className="h-7 border-none bg-transparent focus-visible:ring-0 p-0.5 text-xs md:w-28 font-medium"
                       value={dateFilter.to}
-                      onChange={(e) => {
-                        setDateFilter(prev => ({ ...prev, to: e.target.value }));
-                        setCurrentPage(1);
-                      }}
+                      onChange={(e) => setDateFilter((prev: any) => ({ ...prev, to: e.target.value }))}
                       disabled={!filterByDate}
                     />
                   </div>
@@ -397,13 +438,19 @@ function ExpensesIncomesContent() {
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      setDateFilter({ from: '', to: '' });
+                      const now = new Date();
+                      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+                      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                      setDateFilter({
+                        from: format(firstDay, 'yyyy-MM-dd'),
+                        to: format(lastDay, 'yyyy-MM-dd'),
+                      });
+                      setFilterByDate(false);
                       setSearchTerm('');
                       setTypeFilter('all');
-                      setFilterByDate(true);
-                      setCurrentPage(1);
+                      setStatusFilter('all');
                     }}
-                    className="text-xs h-7 text-muted-foreground hover:text-primary shrink-0 font-bold px-2"
+                    className="text-xs text-muted-foreground hover:text-primary shrink-0 h-8"
                   >
                     Clear
                   </Button>
@@ -412,170 +459,252 @@ function ExpensesIncomesContent() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0 md:p-6">
-          <div className="hidden md:block overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Amount (Tk)</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
-                      Loading transactions...
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : filteredTransactions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                    No transactions found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedTransactions.map((tx) => {
+        <CardContent className="px-0 md:px-6">
+          {loading ? (
+            <div className="space-y-3 p-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-3 border rounded-xl animate-pulse">
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-36 rounded" />
+                    <Skeleton className="h-3 w-24 rounded" />
+                  </div>
+                  <Skeleton className="h-5 w-20 rounded-md hidden sm:block" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-4 w-20 rounded" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="flex h-32 flex-col items-center justify-center text-muted-foreground">
+              <p>No transactions found.</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Showroom / Origin</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Amount (Tk)</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedTransactions.map((tx) => {
+                      const isExpense = (tx.type || 'expense') === 'expense';
+                      return (
+                        <TableRow key={tx._id}>
+                          <TableCell>{format(new Date(tx.date), 'dd MMM yyyy')}</TableCell>
+                          <TableCell>
+                            <div className="font-medium">{tx.title}</div>
+                            {tx.description && (
+                              <div className="text-xs text-muted-foreground mt-0.5 max-w-[300px] break-words">
+                                {tx.description}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {tx.showroom?.name ? (
+                              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                                {tx.showroom.name}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">
+                                Head Office
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isExpense ? (
+                              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30">
+                                Expense
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30">
+                                Income
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {(tx.status === 'Approved' || !tx.status) && (
+                              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30">
+                                Approved
+                              </span>
+                            )}
+                            {tx.status === 'Pending' && (
+                              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30">
+                                Pending
+                              </span>
+                            )}
+                            {tx.status === 'Rejected' && (
+                              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30">
+                                Rejected
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className={`text-right font-semibold ${isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {isExpense ? '-' : '+'}৳{tx.amount.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {isAdmin && tx.status === 'Pending' && (
+                                  <>
+                                    <DropdownMenuItem
+                                      className="text-emerald-600 focus:text-emerald-600 font-bold"
+                                      onClick={() => handleUpdateStatus(tx._id, 'Approved')}
+                                    >
+                                      <Check className="mr-2 h-4 w-4" /> Approve
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="text-rose-600 focus:text-rose-600 font-bold"
+                                      onClick={() => handleUpdateStatus(tx._id, 'Rejected')}
+                                    >
+                                      <X className="mr-2 h-4 w-4" /> Reject
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {(isAdmin || tx.status === 'Pending') && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setEditingTransaction(tx);
+                                        setIsDialogOpen(true);
+                                      }}
+                                    >
+                                      <Edit className="mr-2 h-4 w-4" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => handleDelete(tx._id)}
+                                    >
+                                      <Trash className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile View (TallyPay recent transactions style) */}
+              <div className="block md:hidden divide-y divide-border">
+                {paginatedTransactions.map((tx) => {
                   const isExpense = (tx.type || 'expense') === 'expense';
                   return (
-                    <TableRow key={tx._id}>
-                      <TableCell>{format(new Date(tx.date), 'dd MMM yyyy')}</TableCell>
-                      <TableCell>
-                        <div className="font-medium">{tx.title}</div>
-                        {tx.description && (
-                          <div className="text-xs text-muted-foreground mt-0.5 max-w-[300px] break-words">
-                            {tx.description}
+                    <div key={tx._id} className="py-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Details */}
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-foreground truncate">{tx.title}</p>
+                          <div className="flex flex-wrap gap-1.5 items-center pt-0.5">
+                            {tx.showroom?.name ? (
+                              <span className="text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded">
+                                {tx.showroom.name}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] italic text-muted-foreground">
+                                Head Office
+                              </span>
+                            )}
+                             {tx.status && (
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${tx.status === 'Approved'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400'
+                                  : tx.status === 'Pending'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-400'
+                                }`}>
+                                {tx.status}
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isExpense ? (
-                          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30">
-                            Expense
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30">
-                            Income
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className={`text-right font-semibold ${isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                        {isExpense ? '-' : '+'}৳{tx.amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setEditingTransaction(tx);
-                                setIsDialogOpen(true);
-                              }}
-                            >
-                              <Edit className="mr-2 h-4 w-4" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => handleDelete(tx._id)}
-                            >
-                              <Trash className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-          </div>
+                          {tx.description && (
+                            <p className="text-[10px] text-muted-foreground mt-1 truncate max-w-[200px]">
+                              {tx.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
-          {/* Mobile View */}
-          <div className="block md:hidden divide-y divide-border">
-            {loading ? (
-              <div className="py-6 text-center">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
-                  Loading transactions...
-                </div>
-              </div>
-            ) : filteredTransactions.length === 0 ? (
-              <div className="py-6 text-center text-muted-foreground">
-                No transactions found.
-              </div>
-            ) : (
-              paginatedTransactions.map((tx) => {
-                const isExpense = (tx.type || 'expense') === 'expense';
-                return (
-                  <div key={tx._id} className="py-3 px-4 flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm">{format(new Date(tx.date), 'dd MMM yyyy')}</span>
-                      {isExpense ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                          Expense
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          Income
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex justify-between items-start">
-                      <div className="flex flex-col flex-1 mr-2">
-                        <span className="font-bold text-sm text-foreground">
-                          {tx.title}
-                        </span>
-                        {tx.description && (
-                          <span className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                            {tx.description}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className={`font-bold text-sm ${isExpense ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {isExpense ? '-' : '+'}৳{tx.amount.toLocaleString()}
-                        </span>
+                      {/* Right side Amount, Date & Action Menu */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="text-right shrink-0">
+                          <p className={`font-extrabold text-sm ${isExpense ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            {isExpense ? '-' : '+'}৳{tx.amount.toLocaleString()}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-medium pt-0.5">
+                            {format(new Date(tx.date), 'dd MMM yyyy')}
+                          </p>
+                        </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setEditingTransaction(tx);
-                                setIsDialogOpen(true);
-                              }}
-                            >
-                              <Edit className="mr-2 h-4 w-4" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => handleDelete(tx._id)}
-                            >
-                              <Trash className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
+                            {isAdmin && tx.status === 'Pending' && (
+                              <>
+                                <DropdownMenuItem
+                                  className="text-emerald-600 focus:text-emerald-600 font-bold"
+                                  onClick={() => handleUpdateStatus(tx._id, 'Approved')}
+                                >
+                                  <Check className="mr-2 h-4 w-4" /> Approve
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-rose-600 focus:text-rose-600 font-bold"
+                                  onClick={() => handleUpdateStatus(tx._id, 'Rejected')}
+                                >
+                                  <X className="mr-2 h-4 w-4" /> Reject
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {(isAdmin || tx.status === 'Pending') && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingTransaction(tx);
+                                    setIsDialogOpen(true);
+                                  }}
+                                >
+                                  <Edit className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => handleDelete(tx._id)}
+                                >
+                                  <Trash className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
           {totalPages > 1 && (
             <div className="py-4 border-t bg-background px-6">
               <Pagination
@@ -593,7 +722,7 @@ function ExpensesIncomesContent() {
 
 export default function ExpensesIncomesPage() {
   return (
-    <Suspense fallback={<div className="flex h-32 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+    <Suspense fallback={<AdminTableSkeleton rowCount={7} columnCount={6} titleWidth="w-56" showStats={true} />}>
       <ExpensesIncomesContent />
     </Suspense>
   );

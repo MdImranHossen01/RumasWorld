@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect, Suspense, useCallback } from 'react';
+import { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Plus, Trash2, Search, FileText, CalendarDays, Eye, DollarSign, MoreHorizontal, Edit, Download, Printer, Users, Loader2, SlidersHorizontal } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AdminTableSkeleton } from '@/components/admin/AdminSkeletons';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { generateBillPDF } from '@/lib/bill-invoice-generator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,31 +51,58 @@ function SupplierBillsContent() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const statusFilter = searchParams.get('status') || 'all';
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const defaultDates = {
-    from: format(start, 'yyyy-MM-dd'),
-    to: format(end, 'yyyy-MM-dd')
-  };
-  const [dateFilter, setDateFilter] = useState(defaultDates);
-  
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [filterByDate, setFilterByDate] = useState(true);
-  const isFiltered = !!((filterByDate && (dateFilter.from || dateFilter.to)) || searchTerm || statusFilter !== 'all');
-  
-  const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1'));
 
-  // Reset page in URL when local filters change
+  const [dateFilter, setDateFilter] = useState(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      from: format(start, 'yyyy-MM-dd'),
+      to: format(end, 'yyyy-MM-dd')
+    };
+  });
+
+  const initialStatus = (searchParams.get('status') || 'all').toLowerCase();
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [filterByDate, setFilterByDate] = useState(true);
+
+  const initialPage = Math.max(1, parseInt(searchParams.get('page') || '1'));
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const isFiltered = !!(
+    (filterByDate && (dateFilter.from || dateFilter.to)) ||
+    searchTerm ||
+    statusFilter !== 'all'
+  );
+
+  // Sync state changes to URL query parameters
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
-    if (params.has('page')) {
+    if (currentPage > 1) {
+      params.set('page', currentPage.toString());
+    } else {
       params.delete('page');
-      router.push(`/admin/supplier-bills?${params.toString()}`);
     }
-  }, [searchTerm, dateFilter.from, dateFilter.to, router, searchParams]);
+    if (statusFilter !== 'all') {
+      params.set('status', statusFilter);
+    } else {
+      params.delete('status');
+    }
+    router.push(`/admin/supplier-bills?${params.toString()}`);
+  }, [currentPage, statusFilter]);
+
+  const isMounted = useRef(false);
+  // Reset page when filters change
+  useEffect(() => {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+    setCurrentPage(1);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('page');
+    router.push(`/admin/supplier-bills?${params.toString()}`);
+  }, [searchTerm, statusFilter, filterByDate, dateFilter.from, dateFilter.to]);
 
   // Create Bill State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -93,7 +123,13 @@ function SupplierBillsContent() {
 
   const [settings, setSettings] = useState<any>(null);
 
-  const fetchSettings = useCallback(async () => {
+  useEffect(() => {
+    fetchBills();
+    fetchSuppliers();
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
     try {
       const res = await fetch('/api/settings');
       if (res.ok) {
@@ -103,10 +139,11 @@ function SupplierBillsContent() {
     } catch (err) {
       console.error('Error fetching settings:', err);
     }
-  }, []);
+  };
 
-  const fetchBills = useCallback(async () => {
+  const fetchBills = async () => {
     try {
+      setLoading(true);
       const res = await fetch('/api/admin/supplier-bills');
       if (!res.ok) throw new Error('Failed to fetch bills');
       const data = await res.json();
@@ -116,9 +153,9 @@ function SupplierBillsContent() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  const fetchSuppliers = useCallback(async () => {
+  const fetchSuppliers = async () => {
     try {
       const res = await fetch('/api/admin/suppliers');
       if (res.ok) {
@@ -128,17 +165,7 @@ function SupplierBillsContent() {
     } catch (error) {
       console.error('Error fetching suppliers:', error);
     }
-  }, []);
-
-  useEffect(() => {
-    const loadData = async () => {
-      await fetchBills();
-      await fetchSuppliers();
-      await fetchSettings();
-    };
-    loadData();
-  }, [fetchBills, fetchSuppliers, fetchSettings]);
-
+  };
 
   const handleAddItem = () => {
     setBillItems([...billItems, { name: '', quantity: 1, price: 0 }]);
@@ -194,7 +221,6 @@ function SupplierBillsContent() {
       const res = await fetch(`/api/admin/supplier-bills/${id}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Supplier Bill deleted');
-        setLoading(true);
         fetchBills();
       } else {
         const err = await res.json().catch(() => ({}));
@@ -246,7 +272,6 @@ function SupplierBillsContent() {
       toast.success(editingBill ? 'Supplier Bill updated successfully' : 'Supplier Bill generated successfully');
       setIsCreateOpen(false);
       setEditingBill(null);
-      setLoading(true);
       fetchBills();
     } catch (error: any) {
       toast.error(error.message || 'Error saving bill');
@@ -258,7 +283,7 @@ function SupplierBillsContent() {
   const filteredBills = bills.filter(b => {
     const matchesSearch = b.billNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (b.supplier && b.supplier.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      
+
     let matchesDate = true;
     if (filterByDate) {
       if (dateFilter.from) {
@@ -292,110 +317,57 @@ function SupplierBillsContent() {
   const accountsPayable = bills.reduce((sum, b) => sum + (b.dueAmount || 0), 0);
 
   return (
-    <div className="flex-1 space-y-6 px-0 py-4 md:p-8">
-      <div className="flex items-center justify-between gap-2 border-b pb-4">
-        <div className="space-y-0.5">
-          <h2 className="text-lg sm:text-2xl font-bold tracking-tight">Supplier Bills & Purchases</h2>
-          <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm hidden xs:block">Create and track raw materials or products purchased from suppliers.</p>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Supplier Bills & Purchases</h1>
+          <p className="text-muted-foreground text-sm">
+            Record raw material & goods purchases, manage supplier payables, and track dues.
+          </p>
         </div>
-        <Button onClick={openCreateDialog} disabled={suppliers.length === 0} className="font-bold bg-primary text-primary-foreground h-9 px-3 text-xs sm:text-sm shrink-0">
-          <Plus className="mr-1 h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">New Purchase Bill</span>
-          <span className="inline sm:hidden">Add Bill</span>
+        <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto bg-primary text-primary-foreground">
+          <Plus className="mr-2 h-4 w-4" /> Record Purchase Bill
         </Button>
       </div>
 
-      {suppliers.length === 0 && (
-        <div className="bg-amber-50 text-amber-800 p-4 rounded-md border border-amber-200 text-sm font-bold">
-          Please add at least one Supplier/Vendor first in the Suppliers tab before creating purchase bills.
-        </div>
-      )}
-
-      {/* Metrics Cards */}
+      {/* Overview Cards (TallyPay Inspired) */}
       <div className="grid gap-2 sm:gap-4 grid-cols-3">
-        {/* Total Purchase Card */}
-        <Card className="bg-primary/5 border-primary/10 border-l-2 border-l-primary relative overflow-hidden group h-full min-h-[85px] sm:min-h-0 shadow-sm hover:shadow transition-shadow">
-          {/* Mobile Layout */}
-          <div className="flex flex-col p-2.5 sm:hidden justify-between h-full gap-2 items-center text-center">
-            <div className="flex-1 flex items-center justify-center">
-              <span className="text-sm font-black text-primary leading-none">
-                ৳{totalBilled.toLocaleString()}
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-zinc-600 leading-tight mt-auto">
-              Total Purchase
-            </span>
-          </div>
-          {/* Desktop Layout */}
-          <div className="hidden sm:block">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-              <CardTitle className="text-sm font-semibold leading-tight">Total Purchase</CardTitle>
-              <FileText className="h-4 w-4 text-primary shrink-0" />
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="text-lg md:text-2xl font-extrabold text-primary">৳{totalBilled.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">Cumulative supplier purchases</p>
-            </CardContent>
-          </div>
+        <Card className="bg-primary/5 border-primary/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 sm:p-6 pb-1 sm:pb-2">
+            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium truncate">Total Purchases</CardTitle>
+            <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
+          </CardHeader>
+          <CardContent className="p-2 sm:p-6 pt-0 sm:pt-0">
+            <div className="text-xs sm:text-lg md:text-2xl font-bold">৳{totalBilled.toLocaleString()}</div>
+            <p className="text-[9px] sm:text-xs text-muted-foreground mt-0.5 truncate hidden xs:block">Raw materials & goods</p>
+          </CardContent>
         </Card>
-
-        {/* Collected Card */}
-        <Card className="bg-primary/5 border-primary/10 border-l-2 border-l-primary relative overflow-hidden group h-full min-h-[85px] sm:min-h-0 shadow-sm hover:shadow transition-shadow">
-          {/* Mobile Layout */}
-          <div className="flex flex-col p-2.5 sm:hidden justify-between h-full gap-2 items-center text-center">
-            <div className="flex-1 flex items-center justify-center">
-              <span className="text-sm font-black text-primary leading-none">
-                ৳{totalPaid.toLocaleString()}
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-zinc-600 leading-tight mt-auto">
-              Total Paid
-            </span>
-          </div>
-          {/* Desktop Layout */}
-          <div className="hidden sm:block">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-              <CardTitle className="text-sm font-semibold leading-tight">Total Paid</CardTitle>
-              <DollarSign className="h-4 w-4 text-primary shrink-0" />
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="text-lg md:text-2xl font-extrabold text-primary">৳{totalPaid.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">Payments made to suppliers</p>
-            </CardContent>
-          </div>
+        <Card className="bg-green-500/5 border-green-500/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 sm:p-6 pb-1 sm:pb-2">
+            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium truncate">Paid Out</CardTitle>
+            <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />
+          </CardHeader>
+          <CardContent className="p-2 sm:p-6 pt-0 sm:pt-0">
+            <div className="text-xs sm:text-lg md:text-2xl font-bold text-green-700">৳{totalPaid.toLocaleString()}</div>
+            <p className="text-[9px] sm:text-xs text-muted-foreground mt-0.5 truncate hidden xs:block">Payments made</p>
+          </CardContent>
         </Card>
-
-        {/* Receivable Card */}
-        <Card className="bg-primary/5 border-primary/10 border-l-2 border-l-primary relative overflow-hidden group h-full min-h-[85px] sm:min-h-0 shadow-sm hover:shadow transition-shadow">
-          {/* Mobile Layout */}
-          <div className="flex flex-col p-2.5 sm:hidden justify-between h-full gap-2 items-center text-center">
-            <div className="flex-1 flex items-center justify-center">
-              <span className="text-sm font-black text-primary leading-none">
-                ৳{accountsPayable.toLocaleString()}
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-zinc-600 leading-tight mt-auto">
-              Payable
-            </span>
-          </div>
-          {/* Desktop Layout */}
-          <div className="hidden sm:block">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-              <CardTitle className="text-sm font-semibold leading-tight">Accounts Payable</CardTitle>
-              <Users className="h-4 w-4 text-primary shrink-0" />
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="text-lg md:text-2xl font-extrabold text-primary">৳{accountsPayable.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">Outstanding due balances</p>
-            </CardContent>
-          </div>
+        <Card className="bg-orange-500/5 border-orange-500/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 sm:p-6 pb-1 sm:pb-2">
+            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium truncate">Payable</CardTitle>
+            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-600 shrink-0" />
+          </CardHeader>
+          <CardContent className="p-2 sm:p-6 pt-0 sm:pt-0">
+            <div className="text-xs sm:text-lg md:text-2xl font-bold text-orange-700">৳{accountsPayable.toLocaleString()}</div>
+            <p className="text-[9px] sm:text-xs text-muted-foreground mt-0.5 truncate hidden xs:block">Outstanding due</p>
+          </CardContent>
         </Card>
       </div>
 
       {/* Filter and Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center justify-between w-full md:w-auto">
-          <h3 className="font-semibold text-lg tracking-tight text-foreground md:hidden">All Purchases</h3>
+          <h3 className="font-semibold text-lg tracking-tight text-foreground">All Purchases</h3>
           {/* Mobile Filter Toggle Button */}
           <div className="block md:hidden">
             <Button
@@ -419,21 +391,30 @@ function SupplierBillsContent() {
             ? 'grid-rows-[1fr] opacity-100 mt-3 visible' 
             : 'grid-rows-[0fr] opacity-0 invisible md:visible md:opacity-100 md:grid-rows-none'
         }`}>
-          <div className="overflow-hidden flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 w-full">
-            
-            {/* Left Side: Search & Date Filters */}
-            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
-              <div className="relative w-full md:w-52">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search by bill no or supplier name..."
-                  className="pl-8 h-8 text-xs w-full"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+          <div className="overflow-hidden flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+            <div className="relative w-full md:w-56">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by bill or supplier..."
+                className="pl-8 text-xs h-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
 
-              {/* Date Filter Checkbox & Date Inputs */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+              <Select value={statusFilter} onValueChange={(val: any) => setStatusFilter(val)}>
+                <SelectTrigger className="w-full md:w-28 text-xs h-8">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="due">Due</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Date Filter Checkbox & Inputs */}
               <div className="flex items-center gap-1.5 text-xs">
                 <label className="flex items-center gap-1 cursor-pointer font-bold text-foreground shrink-0 select-none">
                   <input
@@ -450,7 +431,7 @@ function SupplierBillsContent() {
                     type="date"
                     className="h-7 border-none bg-transparent focus-visible:ring-0 p-0.5 text-xs md:w-28 font-medium"
                     value={dateFilter.from}
-                    onChange={(e) => setDateFilter(prev => ({ ...prev, from: e.target.value }))}
+                    onChange={(e) => setDateFilter((prev: any) => ({ ...prev, from: e.target.value }))}
                     disabled={!filterByDate}
                   />
                   <span className="text-muted-foreground text-[10px] shrink-0 font-medium">to</span>
@@ -458,68 +439,10 @@ function SupplierBillsContent() {
                     type="date"
                     className="h-7 border-none bg-transparent focus-visible:ring-0 p-0.5 text-xs md:w-28 font-medium"
                     value={dateFilter.to}
-                    onChange={(e) => setDateFilter(prev => ({ ...prev, to: e.target.value }))}
+                    onChange={(e) => setDateFilter((prev: any) => ({ ...prev, to: e.target.value }))}
                     disabled={!filterByDate}
                   />
                 </div>
-              </div>
-            </div>
-
-            {/* Right Side: Status Tabs & Clear */}
-            <div className="flex items-center justify-end md:justify-start gap-2 w-full md:w-auto">
-              {/* Tabs (All, Paid, Due) */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Button
-                  variant={statusFilter === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.delete('status');
-                    params.delete('page');
-                    router.push(`/admin/supplier-bills?${params.toString()}`);
-                  }}
-                  className={`font-bold h-7 px-3 text-xs rounded-lg transition-all duration-200 border cursor-pointer ${
-                    statusFilter === 'all' 
-                      ? 'bg-primary border-primary text-primary-foreground shadow-xs' 
-                      : 'bg-background hover:bg-muted border-border text-foreground'
-                  }`}
-                >
-                  All
-                </Button>
-                <Button
-                  variant={statusFilter === 'paid' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.set('status', 'paid');
-                    params.delete('page');
-                    router.push(`/admin/supplier-bills?${params.toString()}`);
-                  }}
-                  className={`font-bold h-7 px-3 text-xs rounded-lg transition-all duration-200 border cursor-pointer ${
-                    statusFilter === 'paid' 
-                      ? 'bg-primary border-primary text-primary-foreground shadow-xs' 
-                      : 'bg-background hover:bg-muted border-border text-foreground'
-                  }`}
-                >
-                  Paid
-                </Button>
-                <Button
-                  variant={statusFilter === 'due' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.set('status', 'due');
-                    params.delete('page');
-                    router.push(`/admin/supplier-bills?${params.toString()}`);
-                  }}
-                  className={`font-bold h-7 px-3 text-xs rounded-lg transition-all duration-200 border cursor-pointer ${
-                    statusFilter === 'due' 
-                      ? 'bg-primary border-primary text-primary-foreground shadow-xs' 
-                      : 'bg-background hover:bg-muted border-border text-foreground'
-                  }`}
-                >
-                  Due
-                </Button>
               </div>
 
               {isFiltered && (
@@ -527,12 +450,18 @@ function SupplierBillsContent() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setDateFilter(defaultDates);
+                    const now = new Date();
+                    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    setDateFilter({
+                      from: format(start, 'yyyy-MM-dd'),
+                      to: format(end, 'yyyy-MM-dd')
+                    });
+                    setFilterByDate(false);
                     setSearchTerm('');
-                    setFilterByDate(true);
-                    router.push('/admin/supplier-bills');
+                    setStatusFilter('all');
                   }}
-                  className="text-xs h-7 text-muted-foreground hover:text-primary shrink-0 font-bold px-2"
+                  className="text-xs text-muted-foreground hover:text-primary shrink-0 h-8"
                 >
                   Clear
                 </Button>
@@ -542,191 +471,200 @@ function SupplierBillsContent() {
         </div>
       </div>
 
-      <Card>
+      <Card className="border-0 bg-transparent md:border md:bg-card shadow-none md:shadow-sm">
         <CardContent className="p-0">
-          <div className="hidden md:block overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Bill No</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Total Amount</TableHead>
-                <TableHead className="text-right">Paid Amount</TableHead>
-                <TableHead className="text-right">Due Amount</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
+          {/* Desktop View */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
-                    Loading bills...
-                  </TableCell>
+                  <TableHead>Bill No</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Total Amount</TableHead>
+                  <TableHead className="text-right">Paid Amount</TableHead>
+                  <TableHead className="text-right">Due Amount</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : filteredBills.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
-                    No bills found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedBills.map((bill: any) => (
-                  <TableRow key={bill._id}>
-                    <TableCell className="font-semibold text-foreground">{bill.billNo}</TableCell>
-                    <TableCell>
-                      {bill.supplier ? (
-                        <div>
-                          <div className="font-medium">{bill.supplier.name}</div>
-                          {bill.supplier.companyName && (
-                            <div className="text-xs text-muted-foreground">{bill.supplier.companyName}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">Deleted Supplier</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{format(new Date(bill.date), 'dd MMM yyyy')}</TableCell>
-                    <TableCell className="text-right font-medium">৳{bill.total.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-emerald-600 font-medium">
-                      ৳{bill.paidAmount.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right text-rose-600 font-semibold">
-                      ৳{bill.dueAmount.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                        bill.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' :
-                        bill.status === 'Partially Paid' ? 'bg-amber-100 text-amber-800' :
-                        'bg-rose-100 text-rose-800'
-                      }`}>
-                        {bill.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50"
-                          onClick={() => generateBillPDF(bill, settings, 'print')}
-                          title="Print Purchase Bill"
-                        >
-                          <Printer className="h-4 w-4" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setSelectedBill(bill); setIsDetailOpen(true); }}>
-                              <Eye className="mr-2 h-4 w-4 text-indigo-600" /> View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setEditingBill(bill);
-                                setSelectedSupplierId(bill.supplier?._id || bill.supplier || '');
-                                setBillDate(format(new Date(bill.date), 'yyyy-MM-dd'));
-                                setBillItems(bill.items);
-                                setDiscountValue(bill.discount || 0);
-                                setPaidAmount(bill.paidAmount || 0);
-                                setPaymentMethod(bill.paymentMethod || 'Cash');
-                                setIsCreateOpen(true);
-                              }}
-                            >
-                              <Edit className="mr-2 h-4 w-4" /> Edit Bill
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'download')}>
-                              <Download className="mr-2 h-4 w-4 text-blue-600" /> Download PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'print')}>
-                              <Printer className="mr-2 h-4 w-4 text-teal-600" /> Print Bill
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => handleDeleteBill(bill._id)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-28 rounded" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-36 rounded" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24 rounded" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-4 w-20 rounded ml-auto" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-4 w-20 rounded ml-auto" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-4 w-20 rounded ml-auto" /></TableCell>
+                      <TableCell className="text-center"><Skeleton className="h-5 w-16 rounded-full mx-auto" /></TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : filteredBills.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
+                      No bills found.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  paginatedBills.map((bill: any) => (
+                    <TableRow key={bill._id}>
+                      <TableCell className="font-semibold text-foreground">{bill.billNo}</TableCell>
+                      <TableCell>
+                        {bill.supplier ? (
+                          <div>
+                            <div className="font-medium">{bill.supplier.name}</div>
+                            {bill.supplier.companyName && (
+                              <div className="text-xs text-muted-foreground">{bill.supplier.companyName}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Deleted Supplier</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{format(new Date(bill.date), 'dd MMM yyyy')}</TableCell>
+                      <TableCell className="text-right font-medium">৳{(bill.total || 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-emerald-600 font-medium">
+                        ৳{(bill.paidAmount || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right text-rose-600 font-semibold">
+                        ৳{(bill.dueAmount || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className={`px-2 py-1 text-xs rounded-full font-semibold ${bill.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' :
+                          bill.status === 'Partially Paid' ? 'bg-amber-100 text-amber-800' :
+                            'bg-rose-100 text-rose-800'
+                          }`}>
+                          {bill.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                            onClick={() => generateBillPDF(bill, settings, 'print')}
+                            title="Print Purchase Bill"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setSelectedBill(bill); setIsDetailOpen(true); }}>
+                                <Eye className="mr-2 h-4 w-4 text-indigo-600" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditingBill(bill);
+                                  setSelectedSupplierId(bill.supplier?._id || bill.supplier || '');
+                                  setBillDate(format(new Date(bill.date), 'yyyy-MM-dd'));
+                                  setBillItems(bill.items ? bill.items.map((item: any) => ({ ...item })) : []);
+                                  setDiscountValue(bill.discount || 0);
+                                  setPaidAmount(bill.paidAmount || 0);
+                                  setPaymentMethod(bill.paymentMethod || 'Cash');
+                                  setIsCreateOpen(true);
+                                }}
+                              >
+                                <Edit className="mr-2 h-4 w-4" /> Edit Bill
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'download')}>
+                                <Download className="mr-2 h-4 w-4 text-blue-600" /> Download PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'print')}>
+                                <Printer className="mr-2 h-4 w-4 text-teal-600" /> Print Bill
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDeleteBill(bill._id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
 
           {/* Mobile View */}
-          <div className="block md:hidden divide-y divide-border px-2">
+          <div className="block md:hidden space-y-2 p-1">
             {loading ? (
-              <div className="py-6 text-center text-muted-foreground">
-                Loading bills...
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="p-3 border rounded-lg bg-background shadow-sm space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <Skeleton className="h-4 w-28 rounded" />
+                        <Skeleton className="h-3 w-36 rounded" />
+                      </div>
+                      <Skeleton className="h-4 w-16 rounded" />
+                    </div>
+                    <div className="flex justify-between pt-1 border-t">
+                      <Skeleton className="h-3 w-20 rounded" />
+                      <Skeleton className="h-3 w-20 rounded" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filteredBills.length === 0 ? (
-              <div className="py-6 text-center text-muted-foreground">
-                No bills found.
-              </div>
+              <div className="p-6 text-center text-muted-foreground text-xs">No bills found.</div>
             ) : (
               paginatedBills.map((bill: any) => (
-                <div key={bill._id} className="py-3 flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-primary flex items-center gap-1 text-sm">
-                      <FileText className="h-3 w-3" />
-                      {bill.billNo}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{format(new Date(bill.date), 'dd MMM yyyy')}</span>
-                  </div>
+                <div key={bill._id} className="p-2.5 border rounded-lg bg-background shadow-sm space-y-2">
                   <div className="flex justify-between items-start">
-                    <div className="flex flex-col">
-                      {bill.supplier ? (
-                        <>
-                          <span className="font-bold text-sm text-foreground truncate max-w-[180px]">
-                            {bill.supplier.name}
-                          </span>
-                          {bill.supplier.companyName && (
-                            <span className="text-xs text-muted-foreground">{bill.supplier.companyName}</span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Deleted Supplier</span>
-                      )}
-                    </div>
-                    <span className={`px-2 py-0.5 text-[9px] rounded-full font-semibold ${
-                        bill.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' :
-                        bill.status === 'Partially Paid' ? 'bg-amber-100 text-amber-800' :
+                    <span className="font-semibold text-primary text-sm">#{bill.billNo}</span>
+                    <span className={`px-2 py-0.5 text-[10px] rounded-full font-semibold ${bill.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' :
+                      bill.status === 'Partially Paid' ? 'bg-amber-100 text-amber-800' :
                         'bg-rose-100 text-rose-800'
                       }`}>
                       {bill.status}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center bg-muted/30 p-2 rounded-md">
-                    <div className="flex flex-col text-[10px]">
-                      <span className="text-muted-foreground">Total: <span className="text-foreground font-semibold">৳{bill.total.toLocaleString()}</span></span>
-                      <span className="text-muted-foreground">Paid: <span className="text-emerald-600 font-semibold">৳{bill.paidAmount.toLocaleString()}</span></span>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Supplier:</span>
+                      <span className="font-medium text-foreground">
+                        {bill.supplier ? bill.supplier.name : 'Deleted Supplier'}
+                      </span>
                     </div>
-                    <div className="flex flex-col items-end text-[10px]">
-                      <span className="text-muted-foreground">Due: <span className="text-rose-600 font-bold">৳{bill.dueAmount.toLocaleString()}</span></span>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Date:</span>
+                      <span className="text-foreground">{format(new Date(bill.date), 'dd MMM yyyy')}</span>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t">
+                      <span className="text-muted-foreground">Total:</span>
+                      <span className="font-bold text-foreground">৳{(bill.total || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-600">
+                      <span>Paid:</span>
+                      <span>৳{(bill.paidAmount || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-rose-600 font-semibold">
+                      <span>Due:</span>
+                      <span>৳{(bill.dueAmount || 0).toLocaleString()}</span>
                     </div>
                   </div>
-                  <div className="flex justify-end gap-1 mt-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-teal-600 hover:text-teal-700 hover:bg-teal-50"
-                      onClick={() => generateBillPDF(bill, settings, 'print')}
-                      aria-label={`Print bill ${bill.billNo}`}
-                    >
-                      <Printer className="h-4 w-4" />
+                  <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t">
+                    <Button variant="outline" size="sm" className="h-8 text-teal-600" onClick={() => generateBillPDF(bill, settings, 'print')}>
+                      <Printer className="h-4 w-4 mr-1" /> Print
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Actions for bill ${bill.billNo}`}>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -739,7 +677,7 @@ function SupplierBillsContent() {
                             setEditingBill(bill);
                             setSelectedSupplierId(bill.supplier?._id || bill.supplier || '');
                             setBillDate(format(new Date(bill.date), 'yyyy-MM-dd'));
-                            setBillItems(bill.items);
+                            setBillItems(bill.items ? bill.items.map((item: any) => ({ ...item })) : []);
                             setDiscountValue(bill.discount || 0);
                             setPaidAmount(bill.paidAmount || 0);
                             setPaymentMethod(bill.paymentMethod || 'Cash');
@@ -772,15 +710,7 @@ function SupplierBillsContent() {
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={(page) => {
-                  const params = new URLSearchParams(searchParams.toString());
-                  if (page > 1) {
-                    params.set('page', page.toString());
-                  } else {
-                    params.delete('page');
-                  }
-                  router.push(`/admin/supplier-bills?${params.toString()}`);
-                }}
+                onPageChange={(page) => setCurrentPage(page)}
               />
             </div>
           )}
@@ -962,11 +892,10 @@ function SupplierBillsContent() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className={`px-2.5 py-1 text-xs rounded-full font-semibold ${
-                    selectedBill.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' :
+                  <span className={`px-2.5 py-1 text-xs rounded-full font-semibold ${selectedBill.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' :
                     selectedBill.status === 'Partially Paid' ? 'bg-amber-100 text-amber-800' :
-                    'bg-rose-100 text-rose-800'
-                  }`}>
+                      'bg-rose-100 text-rose-800'
+                    }`}>
                     {selectedBill.status}
                   </span>
                 </div>
@@ -1002,8 +931,8 @@ function SupplierBillsContent() {
                         <TableRow key={idx}>
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell className="text-center">{item.quantity}</TableCell>
-                          <TableCell className="text-right">৳{item.price.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-medium">৳{(item.quantity * item.price).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">৳{(item.price || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-medium">৳{((item.quantity || 0) * (item.price || 0)).toLocaleString()}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1014,23 +943,23 @@ function SupplierBillsContent() {
               <div className="border-t pt-4 space-y-2 text-sm max-w-xs ml-auto">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal:</span>
-                  <span>৳{selectedBill.subtotal.toLocaleString()}</span>
+                  <span>৳{(selectedBill.subtotal || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Discount:</span>
-                  <span>-৳{selectedBill.discount.toLocaleString()}</span>
+                  <span>-৳{(selectedBill.discount || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between border-t pt-2 font-bold text-base">
                   <span>Total Amount:</span>
-                  <span>৳{selectedBill.total.toLocaleString()}</span>
+                  <span>৳{(selectedBill.total || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-emerald-600 font-semibold">
                   <span>Paid Amount:</span>
-                  <span>৳{selectedBill.paidAmount.toLocaleString()}</span>
+                  <span>৳{(selectedBill.paidAmount || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-rose-600 font-bold border-t pt-1">
                   <span>Remaining Due:</span>
-                  <span>৳{selectedBill.dueAmount.toLocaleString()}</span>
+                  <span>৳{(selectedBill.dueAmount || 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -1043,7 +972,7 @@ function SupplierBillsContent() {
 
 export default function SupplierBillsPage() {
   return (
-    <Suspense fallback={<div className="flex h-32 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+    <Suspense fallback={<AdminTableSkeleton rowCount={7} columnCount={8} titleWidth="w-56" showStats={true} />}>
       <SupplierBillsContent />
     </Suspense>
   );

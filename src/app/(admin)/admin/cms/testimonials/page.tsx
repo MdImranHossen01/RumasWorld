@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -186,14 +187,30 @@ export default function TestimonialsPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-40 text-center">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">Loading testimonials...</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-10 w-10 rounded-full" /></TableCell>
+                    <TableCell>
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-28 rounded" />
+                        <Skeleton className="h-3 w-20 rounded" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[400px]">
+                      <div className="space-y-1">
+                        <Skeleton className="h-3 w-full rounded" />
+                        <Skeleton className="h-3 w-3/4 rounded" />
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-20 rounded" /></TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               ) : testimonials.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-40 text-center">
@@ -259,9 +276,19 @@ export default function TestimonialsPage() {
         {/* Mobile View */}
         <div className="block md:hidden divide-y divide-border">
           {loading ? (
-            <div className="py-8 flex flex-col items-center justify-center gap-2">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground font-medium">Loading testimonials...</p>
+            <div className="space-y-3 p-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-3 border rounded-xl space-y-2.5 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-28 rounded" />
+                      <Skeleton className="h-3 w-20 rounded" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-3 w-full rounded" />
+                </div>
+              ))}
             </div>
           ) : testimonials.length === 0 ? (
             <div className="py-8 flex flex-col items-center justify-center gap-2 px-4 text-center">

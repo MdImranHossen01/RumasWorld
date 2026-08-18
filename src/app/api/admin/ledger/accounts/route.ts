@@ -6,13 +6,18 @@ import { seedLedgerAccounts, recalculateLedgerBalance } from '@/lib/ledgerHelper
 
 export async function GET() {
   try {
-    // const session = await auth();
-    // if (!session || !(['admin', 'super_admin'].includes((session?.user as any)?.role))) {
-    //   return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    // }
+    const session = await auth();
+    if (!session || !(['admin', 'super_admin'].includes((session?.user as any)?.role))) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
 
     await connectToDatabase();
     await seedLedgerAccounts();
+
+    await recalculateLedgerBalance('AR');
+    await recalculateLedgerBalance('AP');
+    await recalculateLedgerBalance('CASH');
+    await recalculateLedgerBalance('BANK');
 
     const accounts = await LedgerAccount.find().sort({ code: 1 });
     return NextResponse.json(accounts);

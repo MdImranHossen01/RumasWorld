@@ -37,6 +37,7 @@ import * as z from 'zod';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -329,11 +330,21 @@ export default function CategoriesPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin" />
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-10 w-10 rounded-md" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-20 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : categories.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
@@ -397,8 +408,19 @@ export default function CategoriesPage() {
         {/* Mobile View */}
         <div className="block md:hidden divide-y divide-border px-2">
           {loading ? (
-            <div className="py-12 text-center">
-              <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+            <div className="space-y-3 py-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="py-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <Skeleton className="h-10 w-10 rounded-md" />
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-28 rounded" />
+                      <Skeleton className="h-3 w-20 rounded" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-12 rounded" />
+                </div>
+              ))}
             </div>
           ) : categories.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Truck, CreditCard, Globe, X, BarChart3 } from 'lucide-react';
+import { AdminSettingsSkeleton } from '@/components/admin/AdminSkeletons';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/ui/image-upload';
 import {
@@ -351,11 +352,7 @@ export default function SettingsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <AdminSettingsSkeleton title="Global Settings" />;
   }
 
   return (

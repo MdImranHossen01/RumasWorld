@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Table,
@@ -18,6 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AdminTableSkeleton } from '@/components/admin/AdminSkeletons';
 import {
   Loader2,
   Plus,
@@ -30,7 +32,6 @@ import {
   CreditCard,
   FileText,
   Package,
-
   ChevronDown,
   X,
   Eye,
@@ -42,12 +43,14 @@ import {
   MoreHorizontal,
   Edit,
   SlidersHorizontal,
-  Share2
+  Share2,
+  Copy
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import Swal from 'sweetalert2';
 import { generateBillPDF } from '@/lib/bill-invoice-generator';
+import { getWhatsAppLink } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +58,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Pagination } from '@/components/ui/pagination';
+
+const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    width="1em"
+    height="1em"
+    {...props}
+  >
+    <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 001.37 5.054L2 22l5.132-1.347a9.937 9.937 0 004.877 1.28h.005c5.505 0 9.989-4.478 9.99-9.985A9.992 9.992 0 0012.012 2zm5.836 14.199c-.32.899-1.576 1.706-2.185 1.761-.559.05-1.286.074-2.074-.176a9.839 9.839 0 01-4.705-3.023 9.388 9.388 0 01-1.926-3.412 5.097 5.097 0 01-.137-2.138c.112-.601.442-1.01.691-1.272.249-.262.502-.328.67-.328.167 0 .335.006.475.014.148.009.347-.058.544.417.202.489.691 1.684.75 1.805.059.12.098.262.019.41-.079.158-.12.262-.24.399-.118.136-.251.306-.358.411-.118.114-.242.238-.104.475.138.238.614 1.01.32.957.382.341.703.56.963.666.26.106.41.088.56-.079.15-.167.643-.75.814-.999.171-.249.34-.208.573-.122.233.086 1.48.697 1.737.825.257.128.428.192.488.295.06.103.06.596-.26 1.495z"/>
+  </svg>
+);
 
 interface BillItemInput {
   name: string;
@@ -83,14 +98,13 @@ function ClientBillsContent() {
     };
   });
 
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [filterByDate, setFilterByDate] = useState(true);
-  const isFiltered = !!((filterByDate && (dateFilter.from || dateFilter.to)) || searchTerm || statusFilter !== 'all');
-
   const initialPage = Math.max(1, parseInt(searchParams.get('page') || '1'));
   const [currentPage, setCurrentPage] = useState(initialPage);
 
   const [settings, setSettings] = useState<any>(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [filterByDate, setFilterByDate] = useState(true);
+  const isFiltered = !!((filterByDate && (dateFilter.from || dateFilter.to)) || searchTerm || statusFilter !== 'all');
 
   // Sync state changes to URL query parameters
   useEffect(() => {
@@ -115,7 +129,6 @@ function ClientBillsContent() {
     params.delete('page');
     router.push(`/admin/bills?${params.toString()}`);
   }, [searchTerm, statusFilter, dateFilter.from, dateFilter.to]);
-
 
   // Bill detail view state
   const [selectedBill, setSelectedBill] = useState<any>(null);
@@ -149,7 +162,23 @@ function ClientBillsContent() {
   // Phone validation
   const [phoneError, setPhoneError] = useState('');
 
-  const fetchBills = useCallback(async () => {
+  const handleCopyLink = async (invoiceNo: string) => {
+    try {
+      const shareableLink = `${window.location.origin}/bills/${invoiceNo}`;
+      await navigator.clipboard.writeText(shareableLink);
+      toast.success('Shareable link copied to clipboard!');
+    } catch (err) {
+      toast.error('Failed to copy link.');
+    }
+  };
+
+  useEffect(() => {
+    fetchBills();
+    fetchProducts();
+    fetchSettings();
+  }, [statusFilter]);
+
+  const fetchBills = async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/admin/bills?filter=${statusFilter}&type=bill`);
@@ -161,9 +190,9 @@ function ClientBillsContent() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  };
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = async () => {
     try {
       const res = await fetch('/api/products?limit=100');
       if (res.ok) {
@@ -173,9 +202,9 @@ function ClientBillsContent() {
     } catch (err) {
       console.error('Error fetching products:', err);
     }
-  }, []);
+  };
 
-  const fetchSettings = useCallback(async () => {
+  const fetchSettings = async () => {
     try {
       const res = await fetch('/api/settings');
       if (res.ok) {
@@ -185,16 +214,7 @@ function ClientBillsContent() {
     } catch (err) {
       console.error('Error fetching settings:', err);
     }
-  }, []);
-
-  useEffect(() => {
-    const loadData = async () => {
-      await fetchBills();
-      await fetchProducts();
-      await fetchSettings();
-    };
-    loadData();
-  }, [fetchBills, fetchProducts, fetchSettings]);
+  };
 
   // Calculations
   const subtotal = billItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -486,96 +506,47 @@ function ClientBillsContent() {
 
   return (
     <div className="flex-1 space-y-6 px-0 py-4 md:p-8">
-      <div className="flex items-center justify-between gap-2 border-b pb-4">
-        <div className="space-y-0.5">
-          <h2 className="text-lg sm:text-2xl font-bold tracking-tight">Client Billing Manager</h2>
-          <p className="text-muted-foreground text-[10px] sm:text-xs md:text-sm hidden xs:block">Create bills, offer discounts, manage collections & track receivables.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Client Billing Manager</h2>
+          <p className="text-muted-foreground text-xs sm:text-sm">Create bills, offer discounts, manage collections & track receivables.</p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)} className="font-bold bg-primary text-primary-foreground h-9 px-3 text-xs sm:text-sm shrink-0">
-          <Plus className="mr-1 h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">Create Bill</span>
-          <span className="inline sm:hidden">Add Bill</span>
+        <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto font-bold bg-primary text-primary-foreground">
+          <Plus className="mr-2 h-4 w-4 shrink-0" /> Create Bill
         </Button>
       </div>
 
       {/* Metrics Cards */}
       <div className="grid gap-2 sm:gap-4 grid-cols-3">
-        {/* Total Billed Card */}
-        <Card className="bg-primary/5 border-primary/10 border-l-2 border-l-primary relative overflow-hidden group h-full min-h-[85px] sm:min-h-0 shadow-sm hover:shadow transition-shadow">
-          {/* Mobile Layout */}
-          <div className="flex flex-col p-2.5 sm:hidden justify-between h-full gap-2 items-center text-center">
-            <div className="flex-1 flex items-center justify-center">
-              <span className="text-sm font-black text-primary leading-none">
-                ৳{totalBilled.toLocaleString()}
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-zinc-600 leading-tight mt-auto">
-              Total Billed
-            </span>
-          </div>
-          {/* Desktop Layout */}
-          <div className="hidden sm:block">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-              <CardTitle className="text-sm font-semibold leading-tight">Total Billed</CardTitle>
-              <FileText className="h-4 w-4 text-primary shrink-0" />
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="text-lg md:text-2xl font-extrabold text-primary">৳{totalBilled.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">Cumulative client invoicing</p>
-            </CardContent>
-          </div>
+        <Card className="bg-primary/5 border-primary/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 sm:p-6 pb-1 sm:pb-2">
+            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium truncate">Total Billed</CardTitle>
+            <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
+          </CardHeader>
+          <CardContent className="p-2 sm:p-6 pt-0 sm:pt-0">
+            <div className="text-xs sm:text-lg md:text-2xl font-bold">৳{totalBilled.toLocaleString()}</div>
+            <p className="text-[9px] sm:text-xs text-muted-foreground mt-0.5 truncate hidden xs:block">Client invoicing</p>
+          </CardContent>
         </Card>
-
-        {/* Collected Card */}
-        <Card className="bg-primary/5 border-primary/10 border-l-2 border-l-primary relative overflow-hidden group h-full min-h-[85px] sm:min-h-0 shadow-sm hover:shadow transition-shadow">
-          {/* Mobile Layout */}
-          <div className="flex flex-col p-2.5 sm:hidden justify-between h-full gap-2 items-center text-center">
-            <div className="flex-1 flex items-center justify-center">
-              <span className="text-sm font-black text-primary leading-none">
-                ৳{totalCollected.toLocaleString()}
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-zinc-600 leading-tight mt-auto">
-              Collected
-            </span>
-          </div>
-          {/* Desktop Layout */}
-          <div className="hidden sm:block">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-              <CardTitle className="text-sm font-semibold leading-tight">Total Collected</CardTitle>
-              <DollarSign className="h-4 w-4 text-primary shrink-0" />
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="text-lg md:text-2xl font-extrabold text-primary">৳{totalCollected.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">Payments received</p>
-            </CardContent>
-          </div>
+        <Card className="bg-green-500/5 border-green-500/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 sm:p-6 pb-1 sm:pb-2">
+            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium truncate">Collected</CardTitle>
+            <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />
+          </CardHeader>
+          <CardContent className="p-2 sm:p-6 pt-0 sm:pt-0">
+            <div className="text-xs sm:text-lg md:text-2xl font-bold text-green-700">৳{totalCollected.toLocaleString()}</div>
+            <p className="text-[9px] sm:text-xs text-muted-foreground mt-0.5 truncate hidden xs:block">Payments received</p>
+          </CardContent>
         </Card>
-
-        {/* Receivable Card */}
-        <Card className="bg-primary/5 border-primary/10 border-l-2 border-l-primary relative overflow-hidden group h-full min-h-[85px] sm:min-h-0 shadow-sm hover:shadow transition-shadow">
-          {/* Mobile Layout */}
-          <div className="flex flex-col p-2.5 sm:hidden justify-between h-full gap-2 items-center text-center">
-            <div className="flex-1 flex items-center justify-center">
-              <span className="text-sm font-black text-primary leading-none">
-                ৳{accountsReceivable.toLocaleString()}
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-zinc-600 leading-tight mt-auto">
-              Receivable
-            </span>
-          </div>
-          {/* Desktop Layout */}
-          <div className="hidden sm:block">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 pb-2">
-              <CardTitle className="text-sm font-semibold leading-tight">Accounts Receivable</CardTitle>
-              <Users className="h-4 w-4 text-primary shrink-0" />
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="text-lg md:text-2xl font-extrabold text-primary">৳{accountsReceivable.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">Outstanding due balances</p>
-            </CardContent>
-          </div>
+        <Card className="bg-orange-500/5 border-orange-500/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 sm:p-6 pb-1 sm:pb-2">
+            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium truncate">Receivable</CardTitle>
+            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-600 shrink-0" />
+          </CardHeader>
+          <CardContent className="p-2 sm:p-6 pt-0 sm:pt-0">
+            <div className="text-xs sm:text-lg md:text-2xl font-bold text-orange-700">৳{accountsReceivable.toLocaleString()}</div>
+            <p className="text-[9px] sm:text-xs text-muted-foreground mt-0.5 truncate hidden xs:block">Outstanding due</p>
+          </CardContent>
         </Card>
       </div>
 
@@ -611,10 +582,10 @@ function ClientBillsContent() {
             {/* Left Side: Search & Date Filters */}
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
               <div className="relative w-full md:w-52">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Search name, phone or bill no..."
-                  className="pl-8 h-8 text-xs w-full"
+                  placeholder="Search name, phone or bill..."
+                  className="pl-8 h-8 text-xs"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -669,11 +640,11 @@ function ClientBillsContent() {
                   All
                 </Button>
                 <Button
-                  variant={statusFilter === 'paid' ? 'default' : 'outline'}
+                  variant={statusFilter === 'Paid' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setStatusFilter('paid')}
+                  onClick={() => setStatusFilter('Paid')}
                   className={`font-bold h-7 px-3 text-xs rounded-lg transition-all duration-200 border cursor-pointer ${
-                    statusFilter === 'paid' 
+                    statusFilter === 'Paid' 
                       ? 'bg-primary border-primary text-primary-foreground shadow-xs' 
                       : 'bg-background hover:bg-muted border-border text-foreground'
                   }`}
@@ -681,11 +652,11 @@ function ClientBillsContent() {
                   Paid
                 </Button>
                 <Button
-                  variant={statusFilter === 'due' ? 'default' : 'outline'}
+                  variant={statusFilter === 'Due' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setStatusFilter('due')}
+                  onClick={() => setStatusFilter('Due')}
                   className={`font-bold h-7 px-3 text-xs rounded-lg transition-all duration-200 border cursor-pointer ${
-                    statusFilter === 'due' 
+                    statusFilter === 'Due' 
                       ? 'bg-primary border-primary text-primary-foreground shadow-xs' 
                       : 'bg-background hover:bg-muted border-border text-foreground'
                   }`}
@@ -721,264 +692,331 @@ function ClientBillsContent() {
       </div>
 
       {/* Bill List Table */}
-      <div className="rounded-md border-none md:border bg-transparent md:bg-background overflow-hidden">
-        <div className="hidden md:block overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Bill No</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Client Details</TableHead>
-                <TableHead className="text-right">Grand Total</TableHead>
-                <TableHead className="text-right">Paid (Cash-in)</TableHead>
-                <TableHead className="text-right">Due</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-center">Expected Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-                  </TableCell>
-                </TableRow>
-              ) : filteredBills.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                    No bills found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedBills.map((bill) => (
-                  <TableRow key={bill._id}>
-                    <TableCell>
-                      <button
-                        onClick={() => setSelectedBill(bill)}
-                        className="font-bold text-primary hover:underline underline-offset-2 flex items-center gap-1 group transition-colors"
-                        title="View Bill Details"
-                      >
-                        <Hash className="h-3 w-3" />
-                        {bill.invoiceNo}
-                        <Eye className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </button>
-                    </TableCell>
-                    <TableCell>{format(new Date(bill.date), 'dd MMM yyyy')}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">{bill.clientName}</div>
-                      <div className="text-xs text-muted-foreground">{bill.clientPhone}</div>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">৳{bill.gTotal}</TableCell>
-                    <TableCell className="text-right text-green-600">৳{bill.cashIn}</TableCell>
-                    <TableCell className="text-right text-orange-600 font-semibold">৳{bill.currentBillDue}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={bill.status === 'Paid' ? 'default' : 'destructive'} className={bill.status === 'Paid' ? 'bg-green-600 text-white border-none' : ''}>
-                        {bill.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center text-xs text-muted-foreground">
-                      {bill.expectedReceivableDate ? format(new Date(bill.expectedReceivableDate), 'dd MMM yyyy') : '—'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50"
-                          onClick={() => generateBillPDF(bill, settings, 'print')}
-                          title="Print Bill"
+      <div className="rounded-md md:border md:bg-background overflow-hidden">
+        {loading ? (
+          <div className="space-y-3 p-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between p-3 border rounded-xl animate-pulse">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-32 rounded" />
+                  <Skeleton className="h-3 w-24 rounded" />
+                </div>
+                <Skeleton className="h-4 w-24 rounded hidden sm:block" />
+                <Skeleton className="h-4 w-20 rounded hidden md:block" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredBills.length === 0 ? (
+          <div className="flex h-32 flex-col items-center justify-center text-muted-foreground">
+            <FileText className="h-10 w-10 mb-2 stroke-1" />
+            <p>No bills found</p>
+          </div>
+        ) : (
+          <>
+            {/* Desktop View */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bill No</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Client Details</TableHead>
+                    <TableHead className="text-right">Grand Total</TableHead>
+                    <TableHead className="text-right">Paid (Cash-in)</TableHead>
+                    <TableHead className="text-right">Due</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-center">Expected Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedBills.map((bill) => (
+                    <TableRow key={bill._id}>
+                      <TableCell>
+                        <button
+                          onClick={() => setSelectedBill(bill)}
+                          className="font-bold text-primary hover:underline underline-offset-2 flex items-center gap-1 group transition-colors"
+                          title="View Bill Details"
                         >
-                          <Printer className="h-4 w-4" />
-                        </Button>
-                        {bill.status === 'Due' && (
+                          <Hash className="h-3 w-3" />
+                          {bill.invoiceNo}
+                          <Eye className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      </TableCell>
+                      <TableCell>{format(new Date(bill.date), 'dd MMM yyyy')}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{bill.clientName}</div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                          <span>{bill.clientPhone}</span>
+                          {bill.clientPhone && (
+                            <div className="flex items-center gap-1">
+                              <a
+                                href={getWhatsAppLink(bill.clientPhone)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-green-600 hover:text-green-700 transition-colors p-0.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded"
+                                title="Chat on WhatsApp"
+                              >
+                                <WhatsAppIcon className="h-3.5 w-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await navigator.clipboard.writeText(bill.clientPhone);
+                                    toast.success('Phone number copied!');
+                                  } catch (err) {
+                                    toast.error('Failed to copy phone number.');
+                                  }
+                                }}
+                                className="text-muted-foreground hover:text-primary transition-colors p-0.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded"
+                                title="Copy Phone Number"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">৳{bill.gTotal}</TableCell>
+                      <TableCell className="text-right text-green-600">৳{bill.cashIn}</TableCell>
+                      <TableCell className="text-right text-orange-600 font-semibold">৳{bill.currentBillDue}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={bill.status === 'Paid' ? 'default' : 'destructive'} className={bill.status === 'Paid' ? 'bg-green-600 text-white border-none' : ''}>
+                          {bill.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground">
+                        {bill.expectedReceivableDate ? format(new Date(bill.expectedReceivableDate), 'dd MMM yyyy') : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => handleUpdateStatus(bill._id, bill.currentBillDue)}
-                            title="Collect Cash"
+                            className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                            onClick={() => generateBillPDF(bill, settings, 'print')}
+                            title="Print Bill"
                           >
-                            <CreditCard className="h-4 w-4" />
+                            <Printer className="h-4 w-4" />
                           </Button>
-                        )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
+                          {bill.status === 'Due' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              onClick={() => handleUpdateStatus(bill._id, bill.currentBillDue)}
+                              title="Collect Cash"
+                            >
+                              <CreditCard className="h-4 w-4" />
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedBill(bill)}>
-                              <Eye className="mr-2 h-4 w-4" /> View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setEditingBill(bill);
-                                setClientName(bill.clientName);
-                                setClientPhone(bill.clientPhone);
-                                setClientAddress(bill.clientAddress);
-                                setBillItems(bill.items);
-                                setDeliveryCharge(bill.deliveryCharge);
-                                setServiceFee(bill.serviceFee || 0);
-                                setDiscountType(bill.discountType || 'fixed');
-                                setDiscountValue(bill.discountValue || 0);
-                                setPrevDue(bill.prevDue || 0);
-                                setCashIn(bill.cashIn || 0);
-                                setExpectedReceivableDate(bill.expectedReceivableDate ? format(new Date(bill.expectedReceivableDate), 'yyyy-MM-dd') : '');
-                                setIsCreateOpen(true);
-                              }}
-                            >
-                              <Edit className="mr-2 h-4 w-4" /> Edit Bill
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'download')}>
-                              <Download className="mr-2 h-4 w-4 text-blue-600" /> Download PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'print')}>
-                              <Printer className="mr-2 h-4 w-4 text-teal-600" /> Print Bill
-                            </DropdownMenuItem>
-                            {bill.status === 'Due' && (
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(bill._id, bill.currentBillDue)}>
-                                <CreditCard className="mr-2 h-4 w-4 text-green-600" /> Collect Cash
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setSelectedBill(bill)}>
+                                <Eye className="mr-2 h-4 w-4" /> View Details
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => handleDeleteBill(bill._id)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditingBill(bill);
+                                  setClientName(bill.clientName);
+                                  setClientPhone(bill.clientPhone);
+                                  setClientAddress(bill.clientAddress);
+                                  setBillItems(bill.items);
+                                  setDeliveryCharge(bill.deliveryCharge);
+                                  setServiceFee(bill.serviceFee || 0);
+                                  setDiscountType(bill.discountType || 'fixed');
+                                  setDiscountValue(bill.discountValue || 0);
+                                  setPrevDue(bill.prevDue || 0);
+                                  setCashIn(bill.cashIn || 0);
+                                  setExpectedReceivableDate(bill.expectedReceivableDate ? format(new Date(bill.expectedReceivableDate), 'yyyy-MM-dd') : '');
+                                  setIsCreateOpen(true);
+                                }}
+                              >
+                                <Edit className="mr-2 h-4 w-4" /> Edit Bill
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'download')}>
+                                <Download className="mr-2 h-4 w-4 text-blue-600" /> Download PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'print')}>
+                                <Printer className="mr-2 h-4 w-4 text-teal-600" /> Print Bill
+                              </DropdownMenuItem>
+                              {bill.status === 'Due' && (
+                                <DropdownMenuItem onClick={() => handleUpdateStatus(bill._id, bill.currentBillDue)}>
+                                  <CreditCard className="mr-2 h-4 w-4 text-green-600" /> Collect Cash
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => handleCopyLink(bill.invoiceNo)}>
+                                <Share2 className="mr-2 h-4 w-4 text-indigo-600" /> Copy Link
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDeleteBill(bill._id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
-        {/* Mobile View */}
-        <div className="block md:hidden divide-y divide-border px-2">
-          {loading ? (
-            <div className="py-12 text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-            </div>
-          ) : filteredBills.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground text-sm">
-              No bills found.
-            </div>
-          ) : (
-            paginatedBills.map((bill) => (
-              <div key={bill._id} className="py-3 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => setSelectedBill(bill)}
-                    className="font-bold text-primary hover:underline flex items-center gap-1"
-                  >
-                    <Hash className="h-3 w-3" />
-                    {bill.invoiceNo}
-                  </button>
-                  <span className="text-xs text-muted-foreground">{format(new Date(bill.date), 'dd MMM yyyy')}</span>
-                </div>
-                <div className="flex justify-between items-start">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-sm text-foreground truncate max-w-[180px]">
-                      {bill.clientName}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{bill.clientPhone}</span>
-                  </div>
-                  <Badge variant={bill.status === 'Paid' ? 'default' : 'destructive'} className={`text-[9px] px-1 py-0 ${bill.status === 'Paid' ? 'bg-green-600 text-white border-none' : ''}`}>
-                    {bill.status}
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center bg-muted/30 p-2 rounded-md">
-                  <div className="flex flex-col text-[10px]">
-                    <span className="text-muted-foreground">Total: <span className="text-foreground font-semibold">৳{bill.gTotal}</span></span>
-                    <span className="text-muted-foreground">Paid: <span className="text-green-600 font-semibold">৳{bill.cashIn}</span></span>
-                  </div>
-                  <div className="flex flex-col items-end text-[10px]">
-                    <span className="text-muted-foreground">Due: <span className="text-orange-600 font-bold">৳{bill.currentBillDue}</span></span>
-                    {bill.expectedReceivableDate && (
-                      <span className="text-muted-foreground">Exp: {format(new Date(bill.expectedReceivableDate), 'dd MMM yy')}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-end gap-1 mt-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-teal-600 hover:text-teal-700 hover:bg-teal-50"
-                    onClick={() => generateBillPDF(bill, settings, 'print')}
-                    aria-label={`Print bill ${bill.invoiceNo}`}
-                  >
-                    <Printer className="h-4 w-4" />
-                  </Button>
-                  {bill.status === 'Due' && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
-                      onClick={() => handleUpdateStatus(bill._id, bill.currentBillDue)}
-                      aria-label={`Collect payment for bill ${bill.invoiceNo}`}
+            {/* Mobile View */}
+            <div className="block md:hidden space-y-2 p-1">
+              {paginatedBills.map((bill) => (
+                <div key={bill._id} className="p-2.5 border rounded-lg bg-background shadow-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => setSelectedBill(bill)}
+                      className="font-bold text-sm text-primary hover:underline"
                     >
-                      <CreditCard className="h-4 w-4" />
+                      #{bill.invoiceNo}
+                    </button>
+                    <Badge variant={bill.status === 'Paid' ? 'default' : 'destructive'} className={bill.status === 'Paid' ? 'bg-green-600 text-white border-none text-[10px]' : 'text-[10px]'}>
+                      {bill.status}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Client:</span>
+                      <span className="font-semibold text-foreground">{bill.clientName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Phone:</span>
+                      <div className="flex items-center gap-1.5 font-medium text-foreground">
+                        <span>{bill.clientPhone}</span>
+                        {bill.clientPhone && (
+                          <div className="flex items-center gap-1">
+                            <a
+                              href={getWhatsAppLink(bill.clientPhone)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-600 hover:text-green-700 transition-colors p-0.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded"
+                              title="Chat on WhatsApp"
+                            >
+                              <WhatsAppIcon className="h-3.5 w-3.5" />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(bill.clientPhone);
+                                  toast.success('Phone number copied!');
+                                } catch (err) {
+                                  toast.error('Failed to copy phone number.');
+                                }
+                              }}
+                              className="text-muted-foreground hover:text-primary transition-colors p-0.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded"
+                              title="Copy Phone Number"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Date:</span>
+                      <span className="text-foreground">{format(new Date(bill.date), 'dd MMM yyyy')}</span>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t">
+                      <span className="text-muted-foreground">Total:</span>
+                      <span className="font-bold text-foreground">৳{bill.gTotal}</span>
+                    </div>
+                    <div className="flex justify-between text-green-600">
+                      <span>Paid:</span>
+                      <span>৳{bill.cashIn}</span>
+                    </div>
+                    <div className="flex justify-between text-orange-600 font-semibold">
+                      <span>Due:</span>
+                      <span>৳{bill.currentBillDue}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-teal-600 hover:text-teal-700 text-xs px-2.5"
+                      onClick={() => generateBillPDF(bill, settings, 'print')}
+                    >
+                      <Printer className="h-3.5 w-3.5 mr-1" /> Print
                     </Button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Actions for bill ${bill.invoiceNo}`}>
-                        <MoreHorizontal className="h-4 w-4" />
+                    {bill.status === 'Due' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50 text-xs px-2.5"
+                        onClick={() => handleUpdateStatus(bill._id, bill.currentBillDue)}
+                      >
+                        <CreditCard className="h-3.5 w-3.5 mr-1" /> Collect
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setSelectedBill(bill)}>
-                        <Eye className="mr-2 h-4 w-4" /> View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setEditingBill(bill);
-                          setClientName(bill.clientName);
-                          setClientPhone(bill.clientPhone);
-                          setClientAddress(bill.clientAddress);
-                          setBillItems(bill.items);
-                          setDeliveryCharge(bill.deliveryCharge);
-                          setServiceFee(bill.serviceFee || 0);
-                          setDiscountType(bill.discountType || 'fixed');
-                          setDiscountValue(bill.discountValue || 0);
-                          setPrevDue(bill.prevDue || 0);
-                          setCashIn(bill.cashIn || 0);
-                          setExpectedReceivableDate(bill.expectedReceivableDate ? format(new Date(bill.expectedReceivableDate), 'yyyy-MM-dd') : '');
-                          setIsCreateOpen(true);
-                        }}
-                      >
-                        <Edit className="mr-2 h-4 w-4" /> Edit Bill
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'download')}>
-                        <Download className="mr-2 h-4 w-4 text-blue-600" /> Download PDF
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'print')}>
-                        <Printer className="mr-2 h-4 w-4 text-teal-600" /> Print Bill
-                      </DropdownMenuItem>
-                      {bill.status === 'Due' && (
-                        <DropdownMenuItem onClick={() => handleUpdateStatus(bill._id, bill.currentBillDue)}>
-                          <CreditCard className="mr-2 h-4 w-4 text-green-600" /> Collect Cash
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSelectedBill(bill)}>
+                          <Eye className="mr-2 h-4 w-4" /> View Details
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => handleDeleteBill(bill._id)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setEditingBill(bill);
+                            setClientName(bill.clientName);
+                            setClientPhone(bill.clientPhone);
+                            setClientAddress(bill.clientAddress);
+                            setBillItems(bill.items);
+                            setDeliveryCharge(bill.deliveryCharge);
+                            setServiceFee(bill.serviceFee || 0);
+                            setDiscountType(bill.discountType || 'fixed');
+                            setDiscountValue(bill.discountValue || 0);
+                            setPrevDue(bill.prevDue || 0);
+                            setCashIn(bill.cashIn || 0);
+                            setExpectedReceivableDate(bill.expectedReceivableDate ? format(new Date(bill.expectedReceivableDate), 'yyyy-MM-dd') : '');
+                            setIsCreateOpen(true);
+                          }}
+                        >
+                          <Edit className="mr-2 h-4 w-4" /> Edit Bill
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'download')}>
+                          <Download className="mr-2 h-4 w-4 text-blue-600" /> Download PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => generateBillPDF(bill, settings, 'print')}>
+                          <Printer className="mr-2 h-4 w-4 text-teal-600" /> Print Bill
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleCopyLink(bill.invoiceNo)}>
+                          <Share2 className="mr-2 h-4 w-4 text-indigo-600" /> Copy Link
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => handleDeleteBill(bill._id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              ))}
+            </div>
+          </>
+        )}
         {totalPages > 1 && (
           <div className="py-4 border-t bg-background px-6">
             <Pagination
@@ -1060,7 +1098,7 @@ function ClientBillsContent() {
               </div>
               <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
                 {billItems.map((item, index) => (
-                  <div key={index} className="flex gap-2 items-center">
+                  <div key={index} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center border p-2 sm:p-0 sm:border-none rounded-md">
                     <Input
                       placeholder="Item Description"
                       value={item.name}
@@ -1068,33 +1106,35 @@ function ClientBillsContent() {
                       className="flex-1"
                       required
                     />
-                    <Input
-                      type="number"
-                      placeholder="Qty"
-                      value={item.quantity}
-                      onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                      className="w-20"
-                      min="1"
-                      required
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Rate"
-                      value={item.price || ''}
-                      onChange={(e) => handleItemChange(index, 'price', e.target.value)}
-                      className="w-28"
-                      min="0"
-                      required
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveItemRow(index)}
-                      className="text-destructive hover:bg-destructive/10 shrink-0 h-10 w-10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <Input
+                        type="number"
+                        placeholder="Qty"
+                        value={item.quantity}
+                        onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                        className="flex-1 sm:w-20"
+                        min="1"
+                        required
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Rate"
+                        value={item.price || ''}
+                        onChange={(e) => handleItemChange(index, 'price', e.target.value)}
+                        className="flex-1 sm:w-28"
+                        min="0"
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveItemRow(index)}
+                        className="text-destructive hover:bg-destructive/10 shrink-0 h-10 w-10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1369,7 +1409,37 @@ function ClientBillsContent() {
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Phone className="h-4 w-4 text-primary shrink-0" />
-                      <span>{selectedBill.clientPhone}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span>{selectedBill.clientPhone}</span>
+                        {selectedBill.clientPhone && (
+                          <div className="flex items-center gap-1">
+                            <a
+                              href={getWhatsAppLink(selectedBill.clientPhone)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-600 hover:text-green-700 transition-colors p-0.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded"
+                              title="Chat on WhatsApp"
+                            >
+                              <WhatsAppIcon className="h-4 w-4" />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(selectedBill.clientPhone);
+                                  toast.success('Phone number copied!');
+                                } catch (err) {
+                                  toast.error('Failed to copy phone number.');
+                                }
+                              }}
+                              className="text-muted-foreground hover:text-primary transition-colors p-0.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded"
+                              title="Copy Phone Number"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-start gap-2 text-sm">
                       <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
@@ -1507,7 +1577,7 @@ function ClientBillsContent() {
 
 export default function ClientBillsPage() {
   return (
-    <Suspense fallback={<div className="flex h-32 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+    <Suspense fallback={<AdminTableSkeleton rowCount={7} columnCount={6} titleWidth="w-48" showStats={true} />}>
       <ClientBillsContent />
     </Suspense>
   );

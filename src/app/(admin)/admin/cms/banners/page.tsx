@@ -14,6 +14,7 @@ import {
 import { Plus, Edit, Trash, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
 
@@ -128,14 +129,22 @@ export default function BannersPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-40 text-center">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Loading banners...</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 4 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-16 w-32 rounded-lg" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-36 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24 rounded" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24 rounded" /></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : banners.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-40 text-center">
@@ -227,9 +236,16 @@ export default function BannersPage() {
         {/* Mobile View */}
         <div className="block md:hidden divide-y divide-border">
           {loading ? (
-            <div className="py-8 flex flex-col items-center justify-center gap-2">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground font-medium">Loading banners...</p>
+            <div className="space-y-3 p-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-3 border rounded-xl space-y-2.5 animate-pulse">
+                  <Skeleton className="aspect-[21/9] w-full rounded-lg" />
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-4 w-32 rounded" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : banners.length === 0 ? (
             <div className="py-8 flex flex-col items-center justify-center gap-2 px-4 text-center">

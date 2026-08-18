@@ -77,16 +77,24 @@ export default function NavbarAarong() {
   const [categories, setCategories] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
 
-  // Monitor scroll for sticky style transitions
+  // Monitor scroll for sticky style transitions with rock-solid hysteresis
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      if (window.scrollY > 40) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+          if (currentScrollY > 120) {
+            setIsScrolled(true);
+          } else if (currentScrollY < 40) {
+            setIsScrolled(false);
+          }
+          ticking = false;
+        });
+        ticking = true;
       }
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -291,13 +299,11 @@ export default function NavbarAarong() {
 
     recognition.start();
   };
-
   return (
     <>
-
       {/* ── Navbar Wrapper ── */}
       <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${isScrolled
-        ? 'bg-background/90 backdrop-blur-md shadow-md border-b border-border/30 py-2'
+        ? 'bg-background/95 backdrop-blur-md shadow-md border-b border-border/30 py-2'
         : 'bg-background py-3'
         }`}>
         <div className="w-full px-4 lg:px-6 relative">
@@ -417,208 +423,27 @@ export default function NavbarAarong() {
             </div>
           </div>
 
-          {/* ── Desktop Layout (Two Rows next to Left Spanning Logo) ── */}
-          <div className="hidden lg:flex gap-3 items-stretch">
-            
-            {/* Logo Image Column (Spanning both rows) */}
-            <div className="flex items-center justify-center border-r border-border/10 pr-3 shrink-0 py-1">
-              <Link href="/" className="relative block w-[85px] h-[85px] transition-transform hover:scale-105">
-                <Image
-                  src={settings.logoUrl || "/logo.webp"}
-                  alt={`${settings.brandName || "Rumas World"} Logo`}
-                  fill
-                  sizes="85px"
-                  className="object-contain"
-                  priority
-                />
-              </Link>
-            </div>
-
-            {/* Content Column (Row 1 and Row 2) */}
-            <div className="flex-1 flex flex-col justify-between py-1">
-              
-              {/* Row 1: Logo Brand Name, Sub-Brands, Utilities */}
-              <div className="flex items-center justify-between w-full border-b border-border/10 pb-2 gap-4">
-                {/* Logo Brand Name Text Only */}
-                <Link href="/" className="text-xl xl:text-2xl uppercase text-foreground transition-colors hover:text-primary font-black tracking-tighter font-logo shrink-0">
-                  {settings.brandName || "RUMAS WORLD"}
+          {/* ── Desktop Layout: Normal (2 Rows) vs Scrolled (1 Row like Aarong) ── */}
+          {isScrolled ? (
+            /* 1-Row Compact Sticky Desktop Layout */
+            <div className="hidden lg:flex items-center justify-between gap-4 xl:gap-6 w-full animate-in fade-in duration-200">
+              {/* Left: Compact Logo Image */}
+              <div className="flex items-center shrink-0">
+                <Link href="/" className="relative block w-[44px] h-[44px] xl:w-[48px] xl:h-[48px] transition-transform hover:scale-105">
+                  <Image
+                    src={settings.logoUrl || "/logo.webp"}
+                    alt={`${settings.brandName || "Rumas World"} Logo`}
+                    fill
+                    sizes="48px"
+                    className="object-contain"
+                    priority
+                  />
                 </Link>
-
-                {/* Right-side Utilities */}
-                <div className="flex items-center gap-3">
-                  {/* Search Bar Container */}
-                  <div ref={searchContainerRef} className="relative">
-                    <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-                      <input
-                        type="text"
-                        placeholder={isListening ? "Listening..." : "Search products..."}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-48 xl:w-60 h-9 pl-9 pr-8 text-xs bg-muted/40 border border-border/70 focus:border-primary focus:bg-background outline-none rounded-full transition-all"
-                      />
-                      <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-
-                      <button
-                        type="button"
-                        onClick={handleVoiceSearch}
-                        aria-label="Voice Search"
-                        className={`absolute right-2.5 p-1 rounded-full text-muted-foreground hover:text-primary transition-colors ${isListening ? 'text-primary animate-pulse bg-primary/10' : ''}`}
-                      >
-                        {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                      </button>
-                    </form>
-
-                    {/* Live Search Dropdown */}
-                    {showDropdown && liveResults.length > 0 && (
-                      <div className="absolute right-0 top-full mt-2 w-80 bg-background border border-border shadow-xl rounded-none overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200">
-                        <div className="p-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-border bg-muted/10">
-                          Matches Found
-                        </div>
-                        <div className="max-h-64 overflow-y-auto divide-y divide-border/60">
-                          {liveResults.map((prod) => (
-                            <Link
-                              key={prod._id}
-                              href={`/product/${prod.slug}`}
-                              onClick={handleResultClick}
-                              className="flex items-center gap-3 p-3 hover:bg-muted/40 transition-colors"
-                            >
-                              <div className="relative h-10 w-10 flex-shrink-0 bg-muted">
-                                <Image
-                                  src={prod.images?.[0] || '/placeholder.png'}
-                                  alt={prod.name}
-                                  fill
-                                  sizes="40px"
-                                  className="object-cover"
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h5 className="text-xs font-bold text-foreground truncate uppercase tracking-wide">
-                                  {prod.name}
-                                </h5>
-                                <p className="text-[10px] font-black text-primary mt-0.5">
-                                  ৳ {(prod.salePrice ?? prod.price).toLocaleString()}
-                                </p>
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
-                        <Link
-                          href={`/shop?search=${encodeURIComponent(searchTerm)}`}
-                          onClick={handleResultClick}
-                          className="block text-center text-xs font-black uppercase tracking-widest text-primary p-2.5 border-t border-border bg-muted/20 hover:bg-muted/40 transition-colors"
-                        >
-                          See All Matches
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Wishlist Link */}
-                  <Link href="/dashboard/wishlist" className="relative p-2 text-foreground hover:text-primary transition-colors">
-                    <Heart className="h-5 w-5" />
-                    {wishlistCount > 0 && (
-                      <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-md">
-                        {wishlistCount}
-                      </span>
-                    )}
-                  </Link>
-
-                  {/* Cart Drawer */}
-                  <CartDrawer>
-                    <button className="relative p-2 text-foreground hover:text-primary transition-colors">
-                      <ShoppingCart className="h-5 w-5" />
-                      {cartCount > 0 && (
-                        <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center shadow-md">
-                          {cartCount}
-                        </span>
-                      )}
-                    </button>
-                  </CartDrawer>
-
-                  {/* Theme Toggle */}
-                  <ModeToggle />
-
-                  {/* User Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="relative rounded-full text-foreground hover:text-primary">
-                        <User className="h-5 w-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56 mt-2 rounded-none border border-border shadow-xl bg-background text-foreground" align="end">
-                      {status === 'authenticated' ? (
-                        <>
-                          <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
-                            My Account
-                            <div className="text-[10px] text-foreground lowercase font-normal mt-0.5 truncate">{profile?.email || session.user?.email}</div>
-                          </DropdownMenuLabel>
-                          <DropdownMenuSeparator className="bg-border" />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                              <Link href="/dashboard/profile" className="flex items-center w-full">
-                                <User className="mr-2 h-4 w-4 text-primary" /> Profile Details
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                              <Link href="/dashboard" className="flex items-center w-full">
-                                <Package className="mr-2 h-4 w-4 text-primary" /> Order History
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                              <Link href="/track-order" className="flex items-center w-full">
-                                <Truck className="mr-2 h-4 w-4 text-primary" /> Track My Order
-                              </Link>
-                            </DropdownMenuItem>
-                            {(session.user as any)?.role === 'admin' || (session.user as any)?.role === 'super_admin' ? (
-                              <DropdownMenuItem asChild className="p-2.5 text-xs font-black uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer text-primary">
-                                <Link href="/admin/dashboard" className="flex items-center w-full">
-                                  <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Controls
-                                </Link>
-                              </DropdownMenuItem>
-                            ) : null}
-                          </DropdownMenuGroup>
-                          <DropdownMenuSeparator className="bg-border" />
-                          <DropdownMenuItem
-                            onClick={() => {
-                              signOut({ callbackUrl: '/login' });
-                              toast.success('Logged out successfully');
-                            }}
-                            className="p-2.5 text-xs font-bold uppercase tracking-wider text-destructive hover:bg-destructive/10 focus:bg-destructive/10 cursor-pointer"
-                          >
-                            <LogOut className="mr-2 h-4 w-4" /> Log Out
-                          </DropdownMenuItem>
-                        </>
-                      ) : (
-                        <>
-                          <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
-                            Guest
-                          </DropdownMenuLabel>
-                          <DropdownMenuSeparator className="bg-border" />
-                          <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                            <Link href="/login" className="flex items-center w-full">
-                              <User className="mr-2 h-4 w-4 text-primary" /> Log In
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                            <Link href="/register" className="flex items-center w-full">
-                              <User className="mr-2 h-4 w-4 text-primary" /> Sign Up
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                            <Link href="/track-order" className="flex items-center w-full">
-                              <Truck className="mr-2 h-4 w-4 text-primary" /> Track Order
-                            </Link>
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
               </div>
 
-              {/* Row 2: Category Navigation Menu */}
-              <div className="flex pt-1 pb-1">
-                <nav className="flex items-center gap-6 xl:gap-8">
+              {/* Center: Category Navigation Menu Tabs */}
+              <div className="flex-1 flex justify-center min-w-0">
+                <nav className="flex items-center gap-5 xl:gap-7 flex-wrap justify-center">
                   {mainCategories.map((cat) => {
                     const subs = getSubcategories(cat._id);
                     return (
@@ -630,7 +455,7 @@ export default function NavbarAarong() {
                       >
                         <Link
                           href={`/shop?category=${cat.slug}`}
-                          className="text-xs font-black uppercase tracking-[0.18em] text-foreground/80 hover:text-primary transition-all flex items-center"
+                          className="text-[12px] xl:text-[13px] font-medium uppercase tracking-[0.14em] text-foreground/85 hover:text-primary transition-colors flex items-center whitespace-nowrap"
                         >
                           {cat.name}
                         </Link>
@@ -638,7 +463,7 @@ export default function NavbarAarong() {
                         {/* Mega Menu Dropdown */}
                         {subs.length > 0 && megaMenuHovered === cat._id && (
                           <div className="absolute top-full left-0 right-0 w-full bg-background border-t border-b border-border shadow-2xl rounded-none p-6 flex gap-6 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-                            {/* Subcategories columns (Left part) */}
+                            {/* Subcategories columns */}
                             <div className="flex-1 grid grid-cols-4 gap-6 max-h-[400px] overflow-y-auto pr-2">
                               {subs.map((sub) => {
                                 const children = getChildren(sub._id);
@@ -646,7 +471,7 @@ export default function NavbarAarong() {
                                   <div key={sub._id} className="space-y-2">
                                     <Link
                                       href={`/shop?category=${sub.slug}`}
-                                      className="text-xs font-black uppercase tracking-wider text-foreground hover:text-primary transition-colors block"
+                                      className="text-xs font-semibold uppercase tracking-wider text-foreground hover:text-primary transition-colors block pb-1 border-b border-border/40"
                                     >
                                       {sub.name}
                                     </Link>
@@ -656,7 +481,7 @@ export default function NavbarAarong() {
                                           <Link
                                             key={child._id}
                                             href={`/shop?category=${child.slug}`}
-                                            className="text-[11px] text-muted-foreground hover:text-primary transition-colors block py-0.5"
+                                            className="text-[12px] font-normal text-muted-foreground hover:text-primary transition-colors block py-0.5"
                                           >
                                             {child.name}
                                           </Link>
@@ -668,7 +493,7 @@ export default function NavbarAarong() {
                               })}
                             </div>
 
-                            {/* Right part: Category Banner Image (like Aarong) */}
+                            {/* Right part: Category Banner Image */}
                             {cat.image && (
                               <div className="w-[200px] h-[280px] relative hidden xl:block flex-shrink-0 bg-muted">
                                 <Image
@@ -690,9 +515,455 @@ export default function NavbarAarong() {
                 </nav>
               </div>
 
-            </div>
+              {/* Right: Utilities */}
+              <div className="flex items-center gap-2 xl:gap-3 shrink-0">
+                {/* Search Bar Container */}
+                <div ref={searchContainerRef} className="relative">
+                  <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+                    <input
+                      type="text"
+                      placeholder={isListening ? "Listening..." : "Search..."}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-32 xl:w-44 h-8 pl-8 pr-7 text-xs bg-muted/40 border border-border/70 focus:border-primary focus:bg-background outline-none rounded-full transition-all"
+                    />
+                    <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
 
-          </div>
+                    <button
+                      type="button"
+                      onClick={handleVoiceSearch}
+                      aria-label="Voice Search"
+                      className={`absolute right-2 p-0.5 rounded-full text-muted-foreground hover:text-primary transition-colors ${isListening ? 'text-primary animate-pulse bg-primary/10' : ''}`}
+                    >
+                      {isListening ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+                    </button>
+                  </form>
+
+                  {/* Live Search Dropdown */}
+                  {showDropdown && liveResults.length > 0 && (
+                    <div className="absolute right-0 top-full mt-2 w-80 bg-background border border-border shadow-xl rounded-none overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="p-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-border bg-muted/10">
+                        Matches Found
+                      </div>
+                      <div className="max-h-64 overflow-y-auto divide-y divide-border/60">
+                        {liveResults.map((prod) => (
+                          <Link
+                            key={prod._id}
+                            href={`/product/${prod.slug}`}
+                            onClick={handleResultClick}
+                            className="flex items-center gap-3 p-3 hover:bg-muted/40 transition-colors"
+                          >
+                            <div className="relative h-10 w-10 flex-shrink-0 bg-muted">
+                              <Image
+                                src={prod.images?.[0] || '/placeholder.png'}
+                                alt={prod.name}
+                                fill
+                                sizes="40px"
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h5 className="text-xs font-bold text-foreground truncate uppercase tracking-wide">
+                                {prod.name}
+                              </h5>
+                              <p className="text-[10px] font-black text-primary mt-0.5">
+                                ৳ {(prod.salePrice ?? prod.price).toLocaleString()}
+                              </p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                      <Link
+                        href={`/shop?search=${encodeURIComponent(searchTerm)}`}
+                        onClick={handleResultClick}
+                        className="block text-center text-xs font-black uppercase tracking-widest text-primary p-2.5 border-t border-border bg-muted/20 hover:bg-muted/40 transition-colors"
+                      >
+                        See All Matches
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* Wishlist Link */}
+                <Link href="/dashboard/wishlist" className="relative p-1.5 text-foreground hover:text-primary transition-colors">
+                  <Heart className="h-5 w-5" />
+                  {wishlistCount > 0 && (
+                    <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-md">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </Link>
+
+                {/* Cart Drawer */}
+                <CartDrawer>
+                  <button className="relative p-1.5 text-foreground hover:text-primary transition-colors">
+                    <ShoppingCart className="h-5 w-5" />
+                    {cartCount > 0 && (
+                      <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center shadow-md">
+                        {cartCount}
+                      </span>
+                    )}
+                  </button>
+                </CartDrawer>
+
+                {/* Theme Toggle */}
+                <ModeToggle />
+
+                {/* User Dropdown (Positioned on the right side) */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-full text-foreground hover:text-primary">
+                      <User className="h-4.5 w-4.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 mt-2 rounded-none border border-border shadow-xl bg-background text-foreground" align="end">
+                    {status === 'authenticated' ? (
+                      <>
+                        <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
+                          My Account
+                          <div className="text-[10px] text-foreground lowercase font-normal mt-0.5 truncate">{profile?.email || session.user?.email}</div>
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                            <Link href="/dashboard/profile" className="flex items-center w-full">
+                              <User className="mr-2 h-4 w-4 text-primary" /> Profile Details
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                            <Link href="/dashboard" className="flex items-center w-full">
+                              <Package className="mr-2 h-4 w-4 text-primary" /> Order History
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                            <Link href="/track-order" className="flex items-center w-full">
+                              <Truck className="mr-2 h-4 w-4 text-primary" /> Track My Order
+                            </Link>
+                          </DropdownMenuItem>
+                          {(session.user as any)?.role === 'admin' || (session.user as any)?.role === 'super_admin' ? (
+                            <DropdownMenuItem asChild className="p-2.5 text-xs font-black uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer text-primary">
+                              <Link href="/admin/dashboard" className="flex items-center w-full">
+                                <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Controls
+                              </Link>
+                            </DropdownMenuItem>
+                          ) : null}
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            signOut({ callbackUrl: '/login' });
+                            toast.success('Logged out successfully');
+                          }}
+                          className="p-2.5 text-xs font-bold uppercase tracking-wider text-destructive hover:bg-destructive/10 focus:bg-destructive/10 cursor-pointer"
+                        >
+                          <LogOut className="mr-2 h-4 w-4" /> Log Out
+                        </DropdownMenuItem>
+                      </>
+                    ) : (
+                      <>
+                        <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
+                          Guest
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                          <Link href="/login" className="flex items-center w-full">
+                            <User className="mr-2 h-4 w-4 text-primary" /> Log In
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                          <Link href="/register" className="flex items-center w-full">
+                            <User className="mr-2 h-4 w-4 text-primary" /> Sign Up
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                          <Link href="/track-order" className="flex items-center w-full">
+                            <Truck className="mr-2 h-4 w-4 text-primary" /> Track Order
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          ) : (
+            /* 2-Row Default Desktop Layout */
+            <div className="hidden lg:flex gap-3 items-stretch">
+              
+              {/* Logo Image Column (Spanning both rows) */}
+              <div className="flex items-center justify-center border-r border-border/10 pr-3 shrink-0 py-1">
+                <Link href="/" className="relative block w-[85px] h-[85px] transition-transform hover:scale-105">
+                  <Image
+                    src={settings.logoUrl || "/logo.webp"}
+                    alt={`${settings.brandName || "Rumas World"} Logo`}
+                    fill
+                    sizes="85px"
+                    className="object-contain"
+                    priority
+                  />
+                </Link>
+              </div>
+
+              {/* Content Column (Row 1 and Row 2) */}
+              <div className="flex-1 flex flex-col justify-between py-1">
+                
+                {/* Row 1: Logo Brand Name, Sub-Brands, Utilities */}
+                <div className="flex items-center justify-between w-full border-b border-border/10 pb-2 gap-4">
+                  {/* Logo Brand Name Text Only */}
+                  <Link href="/" className="text-xl xl:text-2xl uppercase text-foreground transition-colors hover:text-primary font-black tracking-tighter font-logo shrink-0">
+                    {settings.brandName || "RUMAS WORLD"}
+                  </Link>
+
+                  {/* Right-side Utilities */}
+                  <div className="flex items-center gap-3">
+                    {/* Search Bar Container */}
+                    <div ref={searchContainerRef} className="relative">
+                      <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+                        <input
+                          type="text"
+                          placeholder={isListening ? "Listening..." : "Search products..."}
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-48 xl:w-60 h-9 pl-9 pr-8 text-xs bg-muted/40 border border-border/70 focus:border-primary focus:bg-background outline-none rounded-full transition-all"
+                        />
+                        <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+
+                        <button
+                          type="button"
+                          onClick={handleVoiceSearch}
+                          aria-label="Voice Search"
+                          className={`absolute right-2.5 p-1 rounded-full text-muted-foreground hover:text-primary transition-colors ${isListening ? 'text-primary animate-pulse bg-primary/10' : ''}`}
+                        >
+                          {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                        </button>
+                      </form>
+
+                      {/* Live Search Dropdown */}
+                      {showDropdown && liveResults.length > 0 && (
+                        <div className="absolute right-0 top-full mt-2 w-80 bg-background border border-border shadow-xl rounded-none overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <div className="p-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-border bg-muted/10">
+                            Matches Found
+                          </div>
+                          <div className="max-h-64 overflow-y-auto divide-y divide-border/60">
+                            {liveResults.map((prod) => (
+                              <Link
+                                key={prod._id}
+                                href={`/product/${prod.slug}`}
+                                onClick={handleResultClick}
+                                className="flex items-center gap-3 p-3 hover:bg-muted/40 transition-colors"
+                              >
+                                <div className="relative h-10 w-10 flex-shrink-0 bg-muted">
+                                  <Image
+                                    src={prod.images?.[0] || '/placeholder.png'}
+                                    alt={prod.name}
+                                    fill
+                                    sizes="40px"
+                                    className="object-cover"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="text-xs font-bold text-foreground truncate uppercase tracking-wide">
+                                    {prod.name}
+                                  </h5>
+                                  <p className="text-[10px] font-black text-primary mt-0.5">
+                                    ৳ {(prod.salePrice ?? prod.price).toLocaleString()}
+                                  </p>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                          <Link
+                            href={`/shop?search=${encodeURIComponent(searchTerm)}`}
+                            onClick={handleResultClick}
+                            className="block text-center text-xs font-black uppercase tracking-widest text-primary p-2.5 border-t border-border bg-muted/20 hover:bg-muted/40 transition-colors"
+                          >
+                            See All Matches
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Wishlist Link */}
+                    <Link href="/dashboard/wishlist" className="relative p-2 text-foreground hover:text-primary transition-colors">
+                      <Heart className="h-5 w-5" />
+                      {wishlistCount > 0 && (
+                        <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-md">
+                          {wishlistCount}
+                        </span>
+                      )}
+                    </Link>
+
+                    {/* Cart Drawer */}
+                    <CartDrawer>
+                      <button className="relative p-2 text-foreground hover:text-primary transition-colors">
+                        <ShoppingCart className="h-5 w-5" />
+                        {cartCount > 0 && (
+                          <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center shadow-md">
+                            {cartCount}
+                          </span>
+                        )}
+                      </button>
+                    </CartDrawer>
+
+                    {/* Theme Toggle */}
+                    <ModeToggle />
+
+                    {/* User Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="relative rounded-full text-foreground hover:text-primary">
+                          <User className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56 mt-2 rounded-none border border-border shadow-xl bg-background text-foreground" align="end">
+                        {status === 'authenticated' ? (
+                          <>
+                            <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
+                              My Account
+                              <div className="text-[10px] text-foreground lowercase font-normal mt-0.5 truncate">{profile?.email || session.user?.email}</div>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator className="bg-border" />
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                                <Link href="/dashboard/profile" className="flex items-center w-full">
+                                  <User className="mr-2 h-4 w-4 text-primary" /> Profile Details
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                                <Link href="/dashboard" className="flex items-center w-full">
+                                  <Package className="mr-2 h-4 w-4 text-primary" /> Order History
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                                <Link href="/track-order" className="flex items-center w-full">
+                                  <Truck className="mr-2 h-4 w-4 text-primary" /> Track My Order
+                                </Link>
+                              </DropdownMenuItem>
+                              {(session.user as any)?.role === 'admin' || (session.user as any)?.role === 'super_admin' ? (
+                                <DropdownMenuItem asChild className="p-2.5 text-xs font-black uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer text-primary">
+                                  <Link href="/admin/dashboard" className="flex items-center w-full">
+                                    <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Controls
+                                  </Link>
+                                </DropdownMenuItem>
+                              ) : null}
+                            </DropdownMenuGroup>
+                            <DropdownMenuSeparator className="bg-border" />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                signOut({ callbackUrl: '/login' });
+                                toast.success('Logged out successfully');
+                              }}
+                              className="p-2.5 text-xs font-bold uppercase tracking-wider text-destructive hover:bg-destructive/10 focus:bg-destructive/10 cursor-pointer"
+                            >
+                              <LogOut className="mr-2 h-4 w-4" /> Log Out
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <>
+                            <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
+                              Guest
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator className="bg-border" />
+                            <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                              <Link href="/login" className="flex items-center w-full">
+                                <User className="mr-2 h-4 w-4 text-primary" /> Log In
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                              <Link href="/register" className="flex items-center w-full">
+                                <User className="mr-2 h-4 w-4 text-primary" /> Sign Up
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
+                              <Link href="/track-order" className="flex items-center w-full">
+                                <Truck className="mr-2 h-4 w-4 text-primary" /> Track Order
+                              </Link>
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+
+                {/* Row 2: Category Navigation Menu */}
+                <div className="flex pt-1.5 pb-1">
+                  <nav className="flex items-center gap-6 xl:gap-8">
+                    {mainCategories.map((cat) => {
+                      const subs = getSubcategories(cat._id);
+                      return (
+                        <div
+                          key={cat._id}
+                          className="py-1"
+                          onMouseEnter={() => setMegaMenuHovered(cat._id)}
+                          onMouseLeave={() => setMegaMenuHovered(null)}
+                        >
+                          <Link
+                            href={`/shop?category=${cat.slug}`}
+                            className="text-[12px] xl:text-[13px] font-medium uppercase tracking-[0.14em] text-foreground/85 hover:text-primary transition-colors flex items-center whitespace-nowrap"
+                          >
+                            {cat.name}
+                          </Link>
+
+                          {/* Mega Menu Dropdown */}
+                          {subs.length > 0 && megaMenuHovered === cat._id && (
+                            <div className="absolute top-full left-0 right-0 w-full bg-background border-t border-b border-border shadow-2xl rounded-none p-6 flex gap-6 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+                              {/* Subcategories columns (Left part) */}
+                              <div className="flex-1 grid grid-cols-4 gap-6 max-h-[400px] overflow-y-auto pr-2">
+                                {subs.map((sub) => {
+                                  const children = getChildren(sub._id);
+                                  return (
+                                    <div key={sub._id} className="space-y-2">
+                                      <Link
+                                        href={`/shop?category=${sub.slug}`}
+                                        className="text-xs font-semibold uppercase tracking-wider text-foreground hover:text-primary transition-colors block pb-1 border-b border-border/40"
+                                      >
+                                        {sub.name}
+                                      </Link>
+                                      {children.length > 0 && (
+                                        <div className="flex flex-col gap-1">
+                                          {children.map((child) => (
+                                            <Link
+                                              key={child._id}
+                                              href={`/shop?category=${child.slug}`}
+                                              className="text-[12px] font-normal text-muted-foreground hover:text-primary transition-colors block py-0.5"
+                                            >
+                                              {child.name}
+                                            </Link>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Right part: Category Banner Image (like Aarong) */}
+                              {cat.image && (
+                                <div className="w-[200px] h-[280px] relative hidden xl:block flex-shrink-0 bg-muted">
+                                  <Image
+                                    src={cat.image}
+                                    alt={cat.name}
+                                    fill
+                                    sizes="200px"
+                                    className="object-cover"
+                                    priority
+                                  />
+                                  <div className="absolute inset-0 bg-black/10 hover:bg-black/0 transition-colors duration-300" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </nav>
+                </div>
+
+              </div>
+
+            </div>
+          )}
 
           {/* Mobile Search Input Strip */}
           <div className="lg:hidden mt-3 relative">

@@ -54,7 +54,7 @@ const orderSchema = z.object({
       }
     }
     return val;
-  }, z.enum(['COD', 'Online', 'Manual'])),
+  }, z.enum(['COD', 'Online', 'Manual', 'Credit'])),
   deliveryCharge: z.number().min(0).nullish(),
   useWallet: z.boolean().nullish().default(false),
   couponCode: z.string().nullish(),
@@ -63,6 +63,8 @@ const orderSchema = z.object({
     senderNumber: z.string().optional(),
     transactionId: z.string().optional(),
   }).optional(),
+  isCreditOrder: z.boolean().nullish().default(false),
+  expectedPaymentDate: z.string().nullish(),
 });
 
 export async function POST(req: NextRequest) {
@@ -82,7 +84,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const { items, shippingAddress, paymentMethod, useWallet, couponCode, manualPaymentDetails } = validation.data;
+    const { items, shippingAddress, paymentMethod, useWallet, couponCode, manualPaymentDetails, isCreditOrder, expectedPaymentDate } = validation.data;
     const clientProvidedDeliveryCharge = validation.data.deliveryCharge;
 
     await connectToDatabase();
@@ -443,6 +445,8 @@ export async function POST(req: NextRequest) {
           transactionId: paymentMethod === 'Online' ? `ORDER-${crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 16)}` : undefined,
           shortId: crypto.randomBytes(4).toString('hex').toUpperCase(),
           manualPaymentDetails,
+          isCreditOrder: !!isCreditOrder,
+          expectedPaymentDate: expectedPaymentDate ? new Date(expectedPaymentDate) : undefined,
         },
       ],
       { session }
@@ -543,7 +547,20 @@ export async function GET(req: NextRequest) {
     let query: any = { deletedAt: null };
     if (fetchAll && isAdmin) {
       if (status && status !== 'All') {
-        query.status = status;
+        if (status === 'Credit') {
+          query.$and = query.$and || [];
+          query.$and.push({
+            $or: [{ paymentMethod: 'Credit' }, { isCreditOrder: true }]
+          });
+        } else if (status === 'Due') {
+          query.$and = query.$and || [];
+          query.$and.push({
+            $or: [{ paymentMethod: 'Credit' }, { isCreditOrder: true }],
+            paymentStatus: { $ne: 'Paid' }
+          });
+        } else {
+          query.status = status;
+        }
       }
       if (fromDate || toDate) {
         query.createdAt = {};
@@ -599,12 +616,26 @@ export async function GET(req: NextRequest) {
       ready: 0,
       released: 0,
       delivered: 0,
-      cancelled: 0
+      cancelled: 0,
+      credit: 0,
+      due: 0
     };
 
     if (fetchAll && isAdmin) {
       const countQuery = { ...query };
       delete countQuery.status; // Remove status filter to count all
+      // If status was Credit or Due, also remove the condition added to $and
+      if (countQuery.$and) {
+        countQuery.$and = countQuery.$and.filter((cond: any) => {
+          if (cond.$or && cond.$or.some((o: any) => o.paymentMethod === 'Credit' || o.isCreditOrder === true)) {
+            return false;
+          }
+          return true;
+        });
+        if (countQuery.$and.length === 0) {
+          delete countQuery.$and;
+        }
+      }
 
       const statusCounts = await Order.aggregate([
         { $match: countQuery },
@@ -623,6 +654,26 @@ export async function GET(req: NextRequest) {
         else if (sc._id === 'Delivered') counts.delivered = sc.count;
         else if (sc._id === 'Cancelled') counts.cancelled = sc.count;
       });
+
+      // Count Credit orders
+      const creditQuery = {
+        ...countQuery,
+        $and: [
+          ...(countQuery.$and || []),
+          { $or: [{ paymentMethod: 'Credit' }, { isCreditOrder: true }] }
+        ]
+      };
+      counts.credit = await Order.countDocuments(creditQuery);
+
+      // Count Due orders
+      const dueQuery = {
+        ...countQuery,
+        $and: [
+          ...(countQuery.$and || []),
+          { $or: [{ paymentMethod: 'Credit' }, { isCreditOrder: true }], paymentStatus: { $ne: 'Paid' } }
+        ]
+      };
+      counts.due = await Order.countDocuments(dueQuery);
     }
     
     let ordersQuery = Order.find(query).sort({ createdAt: -1 });

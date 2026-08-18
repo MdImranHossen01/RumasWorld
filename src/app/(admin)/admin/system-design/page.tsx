@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AdminSystemDesignSkeleton } from '@/components/admin/AdminSkeletons';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -141,11 +142,7 @@ export default function SuperConfigPage() {
     });
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary" />
-    </div>
-  );
+  if (loading) return <AdminSystemDesignSkeleton />;
 
   const ui = settings?.uiTemplates || {};
 
