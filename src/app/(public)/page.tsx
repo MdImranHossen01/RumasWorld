@@ -381,9 +381,6 @@ export default async function Home() {
 
           {/* 9. Recent Blogs section */}
           <BlogRecent blogs={data.blogs} />
-              layout={ui.layout}
-            />
-          )}
 
           {/* 2. Our Features (Trust Badges) */}
           {ui.layout !== 'aarong' && <FeaturesSection />}
