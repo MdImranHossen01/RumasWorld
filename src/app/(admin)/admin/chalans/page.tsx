@@ -91,7 +91,6 @@ function ClientChalansContent() {
 
   // Reset page when search term or dates change
   useEffect(() => {
-    setCurrentPage(1);
     const params = new URLSearchParams(searchParams.toString());
     params.delete('page');
     router.push(`/admin/chalans?${params.toString()}`);
@@ -121,11 +120,6 @@ function ClientChalansContent() {
   // Phone validation
   const [phoneError, setPhoneError] = useState('');
 
-  useEffect(() => {
-    fetchChalans();
-    fetchProducts();
-    fetchSettings();
-  }, []);
 
   const fetchChalans = async () => {
     try {
@@ -164,6 +158,14 @@ function ClientChalansContent() {
       console.error('Error fetching settings:', err);
     }
   };
+
+  useEffect(() => {
+    (async () => {
+      await fetchChalans();
+      await fetchProducts();
+      await fetchSettings();
+    })();
+  }, []);
 
   const validatePhone = (phone: string) => {
     const bdPhoneRegex = /^(?:\+?88)?01[3-9]\d{8}$/;

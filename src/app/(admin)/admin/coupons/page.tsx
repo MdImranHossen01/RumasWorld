@@ -67,7 +67,9 @@ export default function CouponsPage() {
   };
 
   useEffect(() => {
-    fetchCoupons();
+    (async () => {
+      await fetchCoupons();
+    })();
   }, []);
 
   const handleDelete = async (id: string) => {

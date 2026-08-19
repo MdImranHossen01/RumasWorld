@@ -102,7 +102,7 @@ export default function HeroAarong({ banners, layout }: HeroSliderProps) {
   const isAarongLayout = layout === 'aarong';
 
   return (
-    <div className={`relative w-full ${isAarongLayout ? 'h-[60vh] sm:h-[75vh] md:h-[calc(100vh-105px)] lg:h-[calc(100vh-105px)] max-h-[calc(100vh-105px)]' : 'h-[65vh] sm:h-[80vh] md:h-[90vh] lg:h-[95vh]'} overflow-hidden bg-muted group`}>
+    <div className={`relative w-full ${isAarongLayout ? 'aspect-[21/9] lg:max-h-[calc(100vh-6.5rem)]' : 'h-[65vh] sm:h-[80vh] md:h-[90vh] lg:h-[95vh]'} overflow-hidden bg-muted group`}>
 
       {/* Embla Viewport */}
       <div className="w-full h-full overflow-hidden" ref={emblaRef}>
@@ -151,7 +151,7 @@ export default function HeroAarong({ banners, layout }: HeroSliderProps) {
 
       {/* Slide Indicators */}
       {activeSlides.length > 1 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2.5 z-20">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden sm:flex items-center gap-2.5 z-20">
           {activeSlides.map((_, index) => (
             <button
               key={index}

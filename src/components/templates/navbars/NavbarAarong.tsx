@@ -14,6 +14,7 @@ import {
   MicOff,
   LayoutDashboard,
   LogOut,
+  Settings,
   Package,
   Truck,
   ChevronDown,
@@ -67,6 +68,7 @@ export default function NavbarAarong() {
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recognitionRef = useRef<any>(null);
+  const megaMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const { data: session, status } = useSession();
   const { totalQuantity: cartCount } = useAppSelector((state) => state.cart);
@@ -192,6 +194,39 @@ export default function NavbarAarong() {
     return categories.filter(c => getParentId(c) === subId);
   };
 
+  const handleMegaMenuEnter = (catId: string) => {
+    if (megaMenuTimeoutRef.current) {
+      clearTimeout(megaMenuTimeoutRef.current);
+      megaMenuTimeoutRef.current = null;
+    }
+    setMegaMenuHovered(catId);
+  };
+
+  const handleMegaMenuLeave = () => {
+    if (megaMenuTimeoutRef.current) {
+      clearTimeout(megaMenuTimeoutRef.current);
+    }
+    megaMenuTimeoutRef.current = setTimeout(() => {
+      setMegaMenuHovered(null);
+    }, 200);
+  };
+
+  const handleCloseMegaMenu = () => {
+    if (megaMenuTimeoutRef.current) {
+      clearTimeout(megaMenuTimeoutRef.current);
+      megaMenuTimeoutRef.current = null;
+    }
+    setMegaMenuHovered(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (megaMenuTimeoutRef.current) {
+        clearTimeout(megaMenuTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Live search debounce
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -302,115 +337,202 @@ export default function NavbarAarong() {
   return (
     <>
       {/* ── Navbar Wrapper ── */}
-      <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${isScrolled
-        ? 'bg-background/95 backdrop-blur-md shadow-md border-b border-border/30 py-2'
-        : 'bg-background py-3'
+      <header className={`sticky top-0 z-50 w-full transition-all duration-300 border-b border-muted/30 lg:border-b-0 ${isScrolled
+        ? 'bg-background/95 backdrop-blur-md shadow-md lg:border-b lg:border-border/30 lg:py-2'
+        : 'bg-background lg:py-3'
         }`}>
-        <div className="w-full px-4 lg:px-6 relative">
+        <div className="w-full px-2 lg:px-6 relative">
           
-          {/* ── Mobile Layout (Single Row) ── */}
-          <div className="flex items-center justify-between gap-4 lg:hidden">
-            {/* Mobile Burger Menu */}
+          {/* ── Mobile Layout (Single Row) — V1 Style ── */}
+          <div className="relative flex h-14 items-center justify-between px-1 lg:hidden">
+
+            {/* Mobile Menu Trigger — Left */}
             <div className="flex items-center">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-foreground">
-                    <Menu className="h-6 w-6" />
-                  </Button>
+                <SheetTrigger className="inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle mobile menu</span>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-[300px] sm:w-[350px] p-6 overflow-y-auto bg-background text-foreground border-r border-border">
-                  <div className="mb-8 flex items-center justify-between">
-                    <Logo />
-                    <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
-                      <X className="h-5 w-5" />
-                    </Button>
+                  <div className="mb-2">
+                    <Logo onClick={() => setMobileOpen(false)} />
                   </div>
+
+                  {/* Mobile Search Control inside Sheet */}
+                  <div className="my-3">
+                    <form
+                      onSubmit={(e) => {
+                        handleSearchSubmit(e);
+                        setMobileOpen(false);
+                      }}
+                      className="relative flex items-center"
+                    >
+                      <input
+                        type="text"
+                        placeholder={isListening ? "Listening..." : "Search products..."}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full h-9 pl-9 pr-8 text-xs bg-muted/50 border border-border/70 focus:border-primary focus:bg-background outline-none rounded-full transition-all"
+                      />
+                      <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+
+                      <button
+                        type="button"
+                        onClick={handleVoiceSearch}
+                        aria-label="Voice Search"
+                        className={`absolute right-2.5 p-1 rounded-full text-muted-foreground hover:text-primary transition-colors ${isListening ? 'text-primary animate-pulse bg-primary/10' : ''}`}
+                      >
+                        {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                      </button>
+                    </form>
+
+                    {/* Live search results in mobile sheet */}
+                    {showDropdown && liveResults.length > 0 && (
+                      <div className="mt-2 bg-background border border-border shadow-lg rounded-none overflow-hidden divide-y divide-border/60 max-h-48 overflow-y-auto">
+                        {liveResults.slice(0, 4).map((prod) => (
+                          <Link
+                            key={prod._id}
+                            href={`/product/${prod.slug}`}
+                            onClick={() => {
+                              handleResultClick();
+                              setMobileOpen(false);
+                            }}
+                            className="flex items-center gap-2.5 p-2 hover:bg-muted/40 transition-colors"
+                          >
+                            <div className="relative h-8 w-8 flex-shrink-0 bg-muted">
+                              <Image
+                                src={prod.images?.[0] || '/placeholder.png'}
+                                alt={prod.name}
+                                fill
+                                sizes="32px"
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h5 className="text-[11px] font-bold text-foreground truncate uppercase tracking-wide">
+                                {prod.name}
+                              </h5>
+                              <p className="text-[10px] font-black text-primary">
+                                ৳ {(prod.salePrice ?? prod.price).toLocaleString()}
+                              </p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <nav className="flex flex-col gap-6">
                     {/* Public Links */}
-                    <div className="flex flex-col gap-3 font-semibold uppercase tracking-wider text-sm">
-                      {navItems.map((item) => (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setMobileOpen(false)}
-                          className={`hover:text-primary transition-colors py-2 ${pathname === item.href ? 'text-primary' : ''}`}
-                        >
-                          {item.label}
-                        </Link>
-                      ))}
-                    </div>
-
-                    <div className="h-px bg-border my-2" />
-
-                    {/* Categories Accordion */}
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Categories</h4>
-                      <Accordion type="single" collapsible className="w-full">
-                        {mainCategories.map((cat) => {
-                          const subs = getSubcategories(cat._id);
-                          if (subs.length === 0) {
-                            return (
-                              <Link
-                                key={cat._id}
-                                href={`/shop?category=${cat.slug}`}
-                                onClick={() => setMobileOpen(false)}
-                                className="block py-3 text-sm font-semibold uppercase tracking-wide hover:text-primary"
-                              >
-                                {cat.name}
-                              </Link>
-                            );
-                          }
-                          return (
-                            <AccordionItem key={cat._id} value={cat._id} className="border-none">
-                              <AccordionTrigger className="py-3 text-sm font-semibold uppercase tracking-wide hover:text-primary hover:no-underline">
-                                {cat.name}
-                              </AccordionTrigger>
-                              <AccordionContent className="pl-4 pb-2 flex flex-col gap-2">
-                                <Link
-                                  href={`/shop?category=${cat.slug}`}
-                                  onClick={() => setMobileOpen(false)}
-                                  className="text-xs font-bold text-muted-foreground hover:text-primary py-1 uppercase tracking-wider"
-                                >
-                                  All {cat.name}
-                                </Link>
-                                {subs.map((sub) => (
-                                  <Link
-                                    key={sub._id}
-                                    href={`/shop?category=${sub.slug}`}
-                                    onClick={() => setMobileOpen(false)}
-                                    className="text-xs font-bold text-muted-foreground hover:text-primary py-1 uppercase tracking-wider"
-                                  >
-                                    {sub.name}
-                                  </Link>
-                                ))}
-                              </AccordionContent>
-                            </AccordionItem>
-                          );
-                        })}
-                      </Accordion>
+                    <div className="space-y-4 border-t pt-4 font-medium tracking-tight">
+                      {navItems.map((item, index) => {
+                        const isActive = pathname === item.href;
+                        return (
+                          <React.Fragment key={item.href}>
+                            <Link
+                              href={item.href}
+                              className={`block px-4 py-2 rounded-xl transition-all ${isActive
+                                ? 'bg-primary text-white font-bold shadow-lg shadow-primary/20'
+                                : 'hover:text-primary font-medium'
+                                }`}
+                              onClick={() => setMobileOpen(false)}
+                            >
+                              {item.label}
+                            </Link>
+                            {/* Insert Categories Accordion after Home (index 0) */}
+                            {index === 0 && (
+                              <Accordion type="single" collapsible>
+                                <AccordionItem value="cats" className="border-none">
+                                  <AccordionTrigger className="py-2 hover:no-underline uppercase text-[12px] font-bold tracking-[0.2em] text-left">Categories</AccordionTrigger>
+                                  <AccordionContent className="pt-2 pl-4 flex flex-col gap-3">
+                                    {mainCategories.map((cat) => {
+                                      const subs = getSubcategories(cat._id);
+                                      if (subs.length === 0) {
+                                        return (
+                                          <Link
+                                            key={cat._id}
+                                            href={`/shop?category=${cat.slug}`}
+                                            onClick={() => setMobileOpen(false)}
+                                            className="hover:text-primary text-[11px] font-bold uppercase tracking-[0.1em]"
+                                          >
+                                            {cat.name}
+                                          </Link>
+                                        );
+                                      }
+                                      return (
+                                        <Accordion key={cat._id} type="single" collapsible>
+                                          <AccordionItem value={cat._id} className="border-none">
+                                            <AccordionTrigger className="py-1 hover:no-underline text-[11px] font-bold uppercase tracking-[0.1em] text-left hover:text-primary">
+                                              {cat.name}
+                                            </AccordionTrigger>
+                                            <AccordionContent className="pl-3 flex flex-col gap-2">
+                                              <Link
+                                                href={`/shop?category=${cat.slug}`}
+                                                onClick={() => setMobileOpen(false)}
+                                                className="text-[10px] font-bold text-muted-foreground hover:text-primary uppercase tracking-wider"
+                                              >
+                                                All {cat.name}
+                                              </Link>
+                                              {subs.map((sub) => (
+                                                <Link
+                                                  key={sub._id}
+                                                  href={`/shop?category=${sub.slug}`}
+                                                  onClick={() => setMobileOpen(false)}
+                                                  className="text-[10px] font-bold text-muted-foreground hover:text-primary uppercase tracking-wider"
+                                                >
+                                                  {sub.name}
+                                                </Link>
+                                              ))}
+                                            </AccordionContent>
+                                          </AccordionItem>
+                                        </Accordion>
+                                      );
+                                    })}
+                                  </AccordionContent>
+                                </AccordionItem>
+                              </Accordion>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
                   </nav>
                 </SheetContent>
               </Sheet>
             </div>
 
-            {/* Logo */}
-            <div className="flex-shrink-0">
-              <Logo />
+            {/* Logo — Absolutely Centered (V1 style) */}
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
+              <Logo
+                imageClassName="size-8"
+                textClassName="text-lg whitespace-nowrap"
+                sizes="32px"
+              />
             </div>
 
-            {/* Mobile Utilities */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleVoiceSearch}
-                aria-label="Voice Search"
-                aria-pressed={isListening}
-                className={`p-2 rounded-full hover:bg-muted text-foreground ${isListening ? 'text-primary animate-pulse bg-primary/10' : ''}`}
+            {/* Mobile Actions — Right: Wishlist, Cart Drawer, Account */}
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              {/* Wishlist Link */}
+              <Link
+                href="/dashboard/wishlist"
+                className="relative p-1.5 text-foreground hover:text-primary transition-colors"
+                aria-label="Wishlist"
               >
-                {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-              </button>
+                <Heart className="h-5 w-5" />
+                {wishlistCount > 0 && (
+                  <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-md">
+                    {wishlistCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* Cart Drawer */}
               <CartDrawer>
-                <button className="relative p-2 text-foreground hover:text-primary transition-colors">
+                <button
+                  type="button"
+                  className="relative p-1.5 text-foreground hover:text-primary transition-colors cursor-pointer"
+                  aria-label="Shopping Cart"
+                >
                   <ShoppingCart className="h-5 w-5" />
                   {cartCount > 0 && (
                     <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center shadow-md">
@@ -419,7 +541,100 @@ export default function NavbarAarong() {
                   )}
                 </button>
               </CartDrawer>
-              <ModeToggle />
+
+              {/* User Dropdown / Login */}
+              {status === 'authenticated' && session?.user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center p-1 rounded-full transition-all cursor-pointer outline-none hover:scale-105"
+                      aria-label="Account menu"
+                    >
+                      <div className="h-7 w-7 rounded-full border-2 border-primary/20 overflow-hidden">
+                        <Image
+                          src={session.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user?.name || 'U')}`}
+                          alt={session.user?.name || 'User'}
+                          width={28}
+                          height={28}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 mt-2 z-50">
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="font-serif">
+                        <div className="flex flex-col">
+                          <span>{session.user?.name}</span>
+                          <span className="text-xs font-normal text-muted-foreground truncate">{session.user?.email}</span>
+                          {profile && (
+                            <div className="mt-1.5 flex items-center gap-1.5 bg-primary/10 px-2 py-0.5 rounded-full w-fit border border-primary/20">
+                              <Package className="h-3 w-3 text-primary" />
+                              <span className="text-[10px] font-bold text-primary">৳{profile.walletBalance || 0} Tokens</span>
+                            </div>
+                          )}
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+
+                      {/* Role Based Navigation */}
+                      {(session.user as any)?.role === 'super_admin' ? (
+                        <>
+                          <DropdownMenuItem asChild>
+                            <Link href="/admin/dashboard" className="cursor-pointer">
+                              <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Dashboard
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href="/admin/system-design" className="cursor-pointer">
+                              <Settings className="mr-2 h-4 w-4" /> Infrastructure &amp; Marketing
+                            </Link>
+                          </DropdownMenuItem>
+                        </>
+                      ) : (session.user as any)?.role === 'admin' ? (
+                        <>
+                          <DropdownMenuItem asChild>
+                            <Link href="/admin/dashboard" className="cursor-pointer">
+                              <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Dashboard
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href="/admin/orders" className="cursor-pointer">
+                              <Truck className="mr-2 h-4 w-4" /> Manage Orders
+                            </Link>
+                          </DropdownMenuItem>
+                        </>
+                      ) : (
+                        <>
+                          <DropdownMenuItem asChild>
+                            <Link href="/dashboard" className="cursor-pointer">
+                              <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href="/track-order" className="cursor-pointer">
+                              <Truck className="mr-2 h-4 w-4" /> Track Order
+                            </Link>
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => signOut({ callbackUrl: window.location.origin })} className="text-destructive cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link
+                  href="/login"
+                  className="p-1.5 text-foreground hover:text-primary transition-colors"
+                  aria-label="Log in"
+                >
+                  <User className="h-5 w-5" />
+                </Link>
+              )}
             </div>
           </div>
 
@@ -443,18 +658,19 @@ export default function NavbarAarong() {
 
               {/* Center: Category Navigation Menu Tabs */}
               <div className="flex-1 flex justify-center min-w-0">
-                <nav className="flex items-center gap-5 xl:gap-7 flex-wrap justify-center">
+                <nav className="flex items-center gap-5 xl:gap-7 flex-nowrap overflow-x-auto">
                   {mainCategories.map((cat) => {
                     const subs = getSubcategories(cat._id);
                     return (
                       <div
                         key={cat._id}
                         className="py-1"
-                        onMouseEnter={() => setMegaMenuHovered(cat._id)}
-                        onMouseLeave={() => setMegaMenuHovered(null)}
+                        onMouseEnter={() => handleMegaMenuEnter(cat._id)}
+                        onMouseLeave={handleMegaMenuLeave}
                       >
                         <Link
                           href={`/shop?category=${cat.slug}`}
+                          onClick={handleCloseMegaMenu}
                           className="text-[12px] xl:text-[13px] font-medium uppercase tracking-[0.14em] text-foreground/85 hover:text-primary transition-colors flex items-center whitespace-nowrap"
                         >
                           {cat.name}
@@ -462,7 +678,11 @@ export default function NavbarAarong() {
 
                         {/* Mega Menu Dropdown */}
                         {subs.length > 0 && megaMenuHovered === cat._id && (
-                          <div className="absolute top-full left-0 right-0 w-full bg-background border-t border-b border-border shadow-2xl rounded-none p-6 flex gap-6 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+                          <div
+                            onMouseEnter={() => handleMegaMenuEnter(cat._id)}
+                            onMouseLeave={handleMegaMenuLeave}
+                            className="absolute top-full left-0 right-0 w-full bg-background border-t border-b border-border shadow-2xl rounded-none p-6 flex gap-6 animate-in fade-in slide-in-from-top-2 duration-200 z-50 before:content-[''] before:absolute before:-top-4 before:left-0 before:right-0 before:h-4"
+                          >
                             {/* Subcategories columns */}
                             <div className="flex-1 grid grid-cols-4 gap-6 max-h-[400px] overflow-y-auto pr-2">
                               {subs.map((sub) => {
@@ -471,6 +691,7 @@ export default function NavbarAarong() {
                                   <div key={sub._id} className="space-y-2">
                                     <Link
                                       href={`/shop?category=${sub.slug}`}
+                                      onClick={handleCloseMegaMenu}
                                       className="text-xs font-semibold uppercase tracking-wider text-foreground hover:text-primary transition-colors block pb-1 border-b border-border/40"
                                     >
                                       {sub.name}
@@ -481,6 +702,7 @@ export default function NavbarAarong() {
                                           <Link
                                             key={child._id}
                                             href={`/shop?category=${child.slug}`}
+                                            onClick={handleCloseMegaMenu}
                                             className="text-[12px] font-normal text-muted-foreground hover:text-primary transition-colors block py-0.5"
                                           >
                                             {child.name}
@@ -584,106 +806,109 @@ export default function NavbarAarong() {
                   )}
                 </div>
 
-                {/* Wishlist Link */}
-                <Link href="/dashboard/wishlist" className="relative p-1.5 text-foreground hover:text-primary transition-colors">
-                  <Heart className="h-5 w-5" />
-                  {wishlistCount > 0 && (
-                    <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-md">
-                      {wishlistCount}
-                    </span>
-                  )}
-                </Link>
 
-                {/* Cart Drawer */}
-                <CartDrawer>
-                  <button className="relative p-1.5 text-foreground hover:text-primary transition-colors">
-                    <ShoppingCart className="h-5 w-5" />
-                    {cartCount > 0 && (
-                      <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center shadow-md">
-                        {cartCount}
-                      </span>
-                    )}
-                  </button>
-                </CartDrawer>
 
-                {/* Theme Toggle */}
-                <ModeToggle />
-
-                {/* User Dropdown (Positioned on the right side) */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-full text-foreground hover:text-primary">
-                      <User className="h-4.5 w-4.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 mt-2 rounded-none border border-border shadow-xl bg-background text-foreground" align="end">
-                    {status === 'authenticated' ? (
-                      <>
-                        <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
-                          My Account
-                          <div className="text-[10px] text-foreground lowercase font-normal mt-0.5 truncate">{profile?.email || session.user?.email}</div>
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator className="bg-border" />
+                {/* User Dropdown — V1 Role-Based */}
+                <div className="flex items-center">
+                  {status === 'authenticated' && session?.user ? (
+                    <DropdownMenu>
+                      <div className="relative group/avatar">
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="flex items-center px-2 py-1.5 rounded-xl transition-all cursor-pointer outline-none hover:scale-110"
+                            aria-label="Account menu"
+                          >
+                            <div className="h-8 w-8 rounded-full border-2 border-primary/20 overflow-hidden group-hover/avatar:border-primary transition-all">
+                              <Image
+                                src={session.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user?.name || 'U')}`}
+                                alt={session.user?.name || 'User'}
+                                width={32}
+                                height={32}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          </button>
+                        </DropdownMenuTrigger>
+                        {/* Tooltip */}
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-foreground text-background text-[11px] font-semibold rounded-md whitespace-nowrap opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                          {session.user?.name}
+                          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-foreground rotate-45" />
+                        </div>
+                      </div>
+                      <DropdownMenuContent align="end" className="w-56 mt-2">
                         <DropdownMenuGroup>
-                          <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                            <Link href="/dashboard/profile" className="flex items-center w-full">
-                              <User className="mr-2 h-4 w-4 text-primary" /> Profile Details
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                            <Link href="/dashboard" className="flex items-center w-full">
-                              <Package className="mr-2 h-4 w-4 text-primary" /> Order History
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                            <Link href="/track-order" className="flex items-center w-full">
-                              <Truck className="mr-2 h-4 w-4 text-primary" /> Track My Order
-                            </Link>
-                          </DropdownMenuItem>
-                          {(session.user as any)?.role === 'admin' || (session.user as any)?.role === 'super_admin' ? (
-                            <DropdownMenuItem asChild className="p-2.5 text-xs font-black uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer text-primary">
-                              <Link href="/admin/dashboard" className="flex items-center w-full">
-                                <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Controls
-                              </Link>
-                            </DropdownMenuItem>
-                          ) : null}
+                          <DropdownMenuLabel className="font-serif">
+                            <div className="flex flex-col">
+                              <span>{session.user?.name}</span>
+                              <span className="text-xs font-normal text-muted-foreground truncate">{session.user?.email}</span>
+                              {profile && (
+                                <div className="mt-1.5 flex items-center gap-1.5 bg-primary/10 px-2 py-0.5 rounded-full w-fit border border-primary/20">
+                                  <Package className="h-3 w-3 text-primary" />
+                                  <span className="text-[10px] font-bold text-primary">৳{profile.walletBalance || 0} Tokens</span>
+                                </div>
+                              )}
+                            </div>
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+
+                          {/* Role Based Navigation */}
+                          {(session.user as any)?.role === 'super_admin' ? (
+                            <>
+                              <DropdownMenuItem asChild>
+                                <Link href="/admin/dashboard" className="cursor-pointer">
+                                  <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Dashboard
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href="/admin/system-design" className="cursor-pointer">
+                                  <Settings className="mr-2 h-4 w-4" /> Infrastructure &amp; Marketing
+                                </Link>
+                              </DropdownMenuItem>
+                            </>
+                          ) : (session.user as any)?.role === 'admin' ? (
+                            <>
+                              <DropdownMenuItem asChild>
+                                <Link href="/admin/dashboard" className="cursor-pointer">
+                                  <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Dashboard
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href="/admin/orders" className="cursor-pointer">
+                                  <Truck className="mr-2 h-4 w-4" /> Manage Orders
+                                </Link>
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <>
+                              <DropdownMenuItem asChild>
+                                <Link href="/dashboard" className="cursor-pointer">
+                                  <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href="/track-order" className="cursor-pointer">
+                                  <Truck className="mr-2 h-4 w-4" /> Track Order
+                                </Link>
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuGroup>
-                        <DropdownMenuSeparator className="bg-border" />
-                        <DropdownMenuItem
-                          onClick={() => {
-                            signOut({ callbackUrl: '/login' });
-                            toast.success('Logged out successfully');
-                          }}
-                          className="p-2.5 text-xs font-bold uppercase tracking-wider text-destructive hover:bg-destructive/10 focus:bg-destructive/10 cursor-pointer"
-                        >
-                          <LogOut className="mr-2 h-4 w-4" /> Log Out
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => signOut({ callbackUrl: window.location.origin })} className="text-destructive cursor-pointer">
+                          <LogOut className="mr-2 h-4 w-4" /> Sign Out
                         </DropdownMenuItem>
-                      </>
-                    ) : (
-                      <>
-                        <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
-                          Guest
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator className="bg-border" />
-                        <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                          <Link href="/login" className="flex items-center w-full">
-                            <User className="mr-2 h-4 w-4 text-primary" /> Log In
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                          <Link href="/register" className="flex items-center w-full">
-                            <User className="mr-2 h-4 w-4 text-primary" /> Sign Up
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                          <Link href="/track-order" className="flex items-center w-full">
-                            <Truck className="mr-2 h-4 w-4 text-primary" /> Track Order
-                          </Link>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <Link
+                      href="/login"
+                      className="h-10 w-10 flex items-center justify-center rounded-xl transition-all cursor-pointer hover:text-primary"
+                      aria-label="Log in"
+                    >
+                      <User className="h-5 w-5" />
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
@@ -808,81 +1033,107 @@ export default function NavbarAarong() {
                     {/* Theme Toggle */}
                     <ModeToggle />
 
-                    {/* User Dropdown */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="relative rounded-full text-foreground hover:text-primary">
-                          <User className="h-5 w-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-56 mt-2 rounded-none border border-border shadow-xl bg-background text-foreground" align="end">
-                        {status === 'authenticated' ? (
-                          <>
-                            <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
-                              My Account
-                              <div className="text-[10px] text-foreground lowercase font-normal mt-0.5 truncate">{profile?.email || session.user?.email}</div>
-                            </DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-border" />
+                    {/* User Dropdown — V1 Role-Based */}
+                    <div className="flex items-center">
+                      {status === 'authenticated' && session?.user ? (
+                        <DropdownMenu>
+                          <div className="relative group/avatar">
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="flex items-center px-2 py-1.5 rounded-xl transition-all cursor-pointer outline-none hover:scale-110"
+                                aria-label="Account menu"
+                              >
+                                <div className="h-8 w-8 rounded-full border-2 border-primary/20 overflow-hidden group-hover/avatar:border-primary transition-all">
+                                  <Image
+                                    src={session.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user?.name || 'U')}`}
+                                    alt={session.user?.name || 'User'}
+                                    width={32}
+                                    height={32}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                              </button>
+                            </DropdownMenuTrigger>
+                            {/* Tooltip */}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 bg-foreground text-background text-[11px] font-semibold rounded-md whitespace-nowrap opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                              {session.user?.name}
+                              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-foreground rotate-45" />
+                            </div>
+                          </div>
+                          <DropdownMenuContent align="end" className="w-56 mt-2">
                             <DropdownMenuGroup>
-                              <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                                <Link href="/dashboard/profile" className="flex items-center w-full">
-                                  <User className="mr-2 h-4 w-4 text-primary" /> Profile Details
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                                <Link href="/dashboard" className="flex items-center w-full">
-                                  <Package className="mr-2 h-4 w-4 text-primary" /> Order History
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                                <Link href="/track-order" className="flex items-center w-full">
-                                  <Truck className="mr-2 h-4 w-4 text-primary" /> Track My Order
-                                </Link>
-                              </DropdownMenuItem>
-                              {(session.user as any)?.role === 'admin' || (session.user as any)?.role === 'super_admin' ? (
-                                <DropdownMenuItem asChild className="p-2.5 text-xs font-black uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer text-primary">
-                                  <Link href="/admin/dashboard" className="flex items-center w-full">
-                                    <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Controls
-                                  </Link>
-                                </DropdownMenuItem>
-                              ) : null}
+                              <DropdownMenuLabel className="font-serif">
+                                <div className="flex flex-col">
+                                  <span>{session.user?.name}</span>
+                                  <span className="text-xs font-normal text-muted-foreground truncate">{session.user?.email}</span>
+                                  {profile && (
+                                    <div className="mt-1.5 flex items-center gap-1.5 bg-primary/10 px-2 py-0.5 rounded-full w-fit border border-primary/20">
+                                      <Package className="h-3 w-3 text-primary" />
+                                      <span className="text-[10px] font-bold text-primary">৳{profile.walletBalance || 0} Tokens</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+
+                              {/* Role Based Navigation */}
+                              {(session.user as any)?.role === 'super_admin' ? (
+                                <>
+                                  <DropdownMenuItem asChild>
+                                    <Link href="/admin/dashboard" className="cursor-pointer">
+                                      <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Dashboard
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem asChild>
+                                    <Link href="/admin/system-design" className="cursor-pointer">
+                                      <Settings className="mr-2 h-4 w-4" /> Infrastructure &amp; Marketing
+                                    </Link>
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (session.user as any)?.role === 'admin' ? (
+                                <>
+                                  <DropdownMenuItem asChild>
+                                    <Link href="/admin/dashboard" className="cursor-pointer">
+                                      <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Dashboard
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem asChild>
+                                    <Link href="/admin/orders" className="cursor-pointer">
+                                      <Truck className="mr-2 h-4 w-4" /> Manage Orders
+                                    </Link>
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <>
+                                  <DropdownMenuItem asChild>
+                                    <Link href="/dashboard" className="cursor-pointer">
+                                      <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem asChild>
+                                    <Link href="/track-order" className="cursor-pointer">
+                                      <Truck className="mr-2 h-4 w-4" /> Track Order
+                                    </Link>
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuGroup>
-                            <DropdownMenuSeparator className="bg-border" />
-                            <DropdownMenuItem
-                              onClick={() => {
-                                signOut({ callbackUrl: '/login' });
-                                toast.success('Logged out successfully');
-                              }}
-                              className="p-2.5 text-xs font-bold uppercase tracking-wider text-destructive hover:bg-destructive/10 focus:bg-destructive/10 cursor-pointer"
-                            >
-                              <LogOut className="mr-2 h-4 w-4" /> Log Out
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => signOut({ callbackUrl: window.location.origin })} className="text-destructive cursor-pointer">
+                              <LogOut className="mr-2 h-4 w-4" /> Sign Out
                             </DropdownMenuItem>
-                          </>
-                        ) : (
-                          <>
-                            <DropdownMenuLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground p-3">
-                              Guest
-                            </DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-border" />
-                            <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                              <Link href="/login" className="flex items-center w-full">
-                                <User className="mr-2 h-4 w-4 text-primary" /> Log In
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                              <Link href="/register" className="flex items-center w-full">
-                                <User className="mr-2 h-4 w-4 text-primary" /> Sign Up
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild className="p-2.5 text-xs font-bold uppercase tracking-wider hover:bg-muted focus:bg-muted cursor-pointer">
-                              <Link href="/track-order" className="flex items-center w-full">
-                                <Truck className="mr-2 h-4 w-4 text-primary" /> Track Order
-                              </Link>
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <Link
+                          href="/login"
+                          className="h-10 w-10 flex items-center justify-center rounded-xl transition-all cursor-pointer hover:text-primary"
+                          aria-label="Log in"
+                        >
+                          <User className="h-5 w-5" />
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -895,11 +1146,12 @@ export default function NavbarAarong() {
                         <div
                           key={cat._id}
                           className="py-1"
-                          onMouseEnter={() => setMegaMenuHovered(cat._id)}
-                          onMouseLeave={() => setMegaMenuHovered(null)}
+                          onMouseEnter={() => handleMegaMenuEnter(cat._id)}
+                          onMouseLeave={handleMegaMenuLeave}
                         >
                           <Link
                             href={`/shop?category=${cat.slug}`}
+                            onClick={handleCloseMegaMenu}
                             className="text-[12px] xl:text-[13px] font-medium uppercase tracking-[0.14em] text-foreground/85 hover:text-primary transition-colors flex items-center whitespace-nowrap"
                           >
                             {cat.name}
@@ -907,7 +1159,11 @@ export default function NavbarAarong() {
 
                           {/* Mega Menu Dropdown */}
                           {subs.length > 0 && megaMenuHovered === cat._id && (
-                            <div className="absolute top-full left-0 right-0 w-full bg-background border-t border-b border-border shadow-2xl rounded-none p-6 flex gap-6 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+                            <div
+                              onMouseEnter={() => handleMegaMenuEnter(cat._id)}
+                              onMouseLeave={handleMegaMenuLeave}
+                              className="absolute top-full left-0 right-0 w-full bg-background border-t border-b border-border shadow-2xl rounded-none p-6 flex gap-6 animate-in fade-in slide-in-from-top-2 duration-200 z-50 before:content-[''] before:absolute before:-top-4 before:left-0 before:right-0 before:h-4"
+                            >
                               {/* Subcategories columns (Left part) */}
                               <div className="flex-1 grid grid-cols-4 gap-6 max-h-[400px] overflow-y-auto pr-2">
                                 {subs.map((sub) => {
@@ -916,6 +1172,7 @@ export default function NavbarAarong() {
                                     <div key={sub._id} className="space-y-2">
                                       <Link
                                         href={`/shop?category=${sub.slug}`}
+                                        onClick={handleCloseMegaMenu}
                                         className="text-xs font-semibold uppercase tracking-wider text-foreground hover:text-primary transition-colors block pb-1 border-b border-border/40"
                                       >
                                         {sub.name}
@@ -926,6 +1183,7 @@ export default function NavbarAarong() {
                                             <Link
                                               key={child._id}
                                               href={`/shop?category=${child.slug}`}
+                                              onClick={handleCloseMegaMenu}
                                               className="text-[12px] font-normal text-muted-foreground hover:text-primary transition-colors block py-0.5"
                                             >
                                               {child.name}
@@ -965,19 +1223,7 @@ export default function NavbarAarong() {
             </div>
           )}
 
-          {/* Mobile Search Input Strip */}
-          <div className="lg:hidden mt-3 relative">
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-9 pl-9 pr-4 text-xs bg-muted/40 border border-border/75 focus:border-primary outline-none rounded-full"
-              />
-              <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            </form>
-          </div>
+
         </div>
       </header>
     </>
