@@ -43,6 +43,11 @@ export interface IBill extends Document {
   convertedFrom?: mongoose.Types.ObjectId | string;
   showroom?: mongoose.Types.ObjectId;
   transactionId?: string;
+  manualPaymentDetails?: {
+    methodName?: string;
+    senderNumber?: string;
+    transactionId?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +66,11 @@ const BillSchema: Schema<IBill> = new Schema(
     invoiceNo: { type: String, required: true, unique: true },
     date: { type: Date, default: Date.now },
     transactionId: { type: String },
+    manualPaymentDetails: {
+      methodName: { type: String },
+      senderNumber: { type: String },
+      transactionId: { type: String },
+    },
     items: [
       {
         productId: { type: Schema.Types.ObjectId, ref: 'Product' },
@@ -99,6 +109,9 @@ const BillSchema: Schema<IBill> = new Schema(
   },
   { timestamps: true }
 );
+
+BillSchema.index({ documentType: 1, status: 1, showroom: 1 });
+BillSchema.index({ date: -1 });
 
 const Bill: Model<IBill> = mongoose.models.Bill || mongoose.model<IBill>('Bill', BillSchema);
 
