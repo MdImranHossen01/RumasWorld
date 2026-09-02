@@ -11,7 +11,7 @@ export default function LoadingSplash({
   logoUrl?: string;
   brandName?: string;
 }) {
-  const activeBrandName = brandName || "Rumas World";
+  const activeBrandName = brandName || "Trishna Electronics";
   const letters = useMemo(() => activeBrandName.split(""), [activeBrandName]);
 
   return (

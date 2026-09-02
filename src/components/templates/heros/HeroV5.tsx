@@ -1,16 +1,22 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowDown, Sparkles, MoveRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useSettings } from '@/components/SettingsProvider';
 
 interface HeroV5Props {
    banners: any[];
 }
 
 export default function HeroV5({ banners }: HeroV5Props) {
+   const { t } = useLanguage();
+   const settings = useSettings();
+   const storeName = settings?.brandName || process.env.NEXT_PUBLIC_STORE_NAME || 'Store';
+   const currentYear = new Date().getFullYear();
    const banner = banners?.[0] || {
       title: 'Pure Intentions',
       subtitle: 'THE ART OF MINIMALIST COMMERCE',
@@ -62,7 +68,7 @@ export default function HeroV5({ banners }: HeroV5Props) {
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-black/10 backdrop-blur-[2px]">
                      <Link href="/shop">
                         <Button className="h-20 px-12 rounded-full bg-white text-black hover:bg-primary hover:text-white font-black text-xs uppercase tracking-[0.4em] shadow-2xl transition-all duration-500">
-                           Enter Atelier
+                           {banner?.primaryBtnText || (t('store.hero.shop_now') as string) || 'Enter Atelier'}
                         </Button>
                      </Link>
                   </div>
@@ -93,7 +99,7 @@ export default function HeroV5({ banners }: HeroV5Props) {
 
          {/* Vertical Aesthetic Tag */}
          <div className="absolute right-12 top-1/2 -translate-y-1/2 rotate-180 [writing-mode:vertical-rl] text-[9px] font-black tracking-[0.6em] text-neutral-300 uppercase select-none pointer-events-none hidden xl:block">
-            DESIGNED FOR DISCOVERY • Rumas World.2026
+            DESIGNED FOR DISCOVERY • {storeName}.{currentYear}
          </div>
 
          <style jsx>{`

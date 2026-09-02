@@ -5,16 +5,14 @@ import Image from 'next/image';
 
 import dynamic from 'next/dynamic';
 import { HeroSlider } from '@/components/storefront/HeroSlider';
-import { AarongPromoBanners } from '@/components/storefront/AarongPromoBanners';
 import { FreeDeliveryBanner } from '@/components/storefront/FreeDeliveryBanner';
+import { AarongPromoBanners } from '@/components/storefront/AarongPromoBanners';
 import {
   SectionSkeleton,
   CategoryShowcaseSkeleton,
   BannerSkeleton,
   BlogRecentSkeleton,
   FeaturesSectionSkeleton,
-  FAQSectionSkeleton,
-  TestimonialsSkeleton
 } from '@/components/storefront/Skeletons';
 import Link from 'next/link';
 
@@ -42,7 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
     getCachedBanners()
   ]);
 
-  const brandName = settings?.brandName || 'Rumas World';
+  const brandName = settings?.brandName || process.env.NEXT_PUBLIC_STORE_NAME || 'Store';
   const metaTitle = settings?.metaTitle || brandName;
   const description = settings?.metaDescription || settings?.siteDescription || 'Your ultimate destination for quality products.';
   const ogImage = banners?.[0]?.image || settings?.logoUrl || '';
@@ -87,14 +85,6 @@ const ProductCarouselSection = dynamic(() => import('@/components/storefront/Pro
 
 const BlogRecent = dynamic(() => import('@/components/storefront/BlogRecent').then(mod => mod.BlogRecent), {
   loading: () => <BlogRecentSkeleton />
-});
-
-const FAQSection = dynamic(() => import('@/components/storefront/FAQSection').then(mod => mod.FAQSection), {
-  loading: () => <FAQSectionSkeleton />
-});
-
-const Testimonials = dynamic(() => import('@/components/storefront/Testimonials').then(mod => mod.Testimonials), {
-  loading: () => <TestimonialsSkeleton />
 });
 
 const FeaturesSection = dynamic(() => import('@/components/storefront/FeaturesSection').then(mod => mod.FeaturesSection), {
@@ -300,14 +290,8 @@ export default async function Home() {
             {/* 2. Our Features (Trust Badges) */}
             {ui.layout !== 'aarong' && <FeaturesSection />}
 
-            {/* 8. Testimonials Section */}
-            {ui.layout !== 'aarong' && <Testimonials />}
-
             {/* 11. Newsletter V2 Integration */}
             <NewsletterV2 layout={ui.layout} />
-
-            {/* 10. FAQ Accordion Section */}
-            {ui.layout !== 'aarong' && <FAQSection faqs={data.faqs} />}
           </div>
         </div>
       ) : (
@@ -385,14 +369,8 @@ export default async function Home() {
           {/* 2. Our Features (Trust Badges) */}
           {ui.layout !== 'aarong' && <FeaturesSection />}
 
-          {/* 8. Testimonials Section */}
-          {ui.layout !== 'aarong' && <Testimonials />}
-
           {/* 11. Newsletter V2 Integration */}
           <NewsletterV2 layout={ui.layout} />
-
-          {/* 10. FAQ Accordion Section */}
-          {ui.layout !== 'aarong' && <FAQSection faqs={data.faqs} />}
         </>
       )}
     </div>
