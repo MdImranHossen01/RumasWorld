@@ -31,7 +31,7 @@ export default async function ProductDetailsAarong({ product }: { product: any }
   ]);
 
   return (
-    <div className="container px-4 md:px-0 mx-auto py-10">
+    <div className="w-full px-4 lg:px-8 mx-auto py-4 md:py-6">
       {productSchema && (
         <script
           id="product-schema"
@@ -47,15 +47,15 @@ export default async function ProductDetailsAarong({ product }: { product: any }
         />
       )}
 
-      <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground/80 px-1 lg:px-2">
         <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-        <ChevronRight className="h-3 w-3" />
+        <span>/</span>
         <Link href="/shop" className="hover:text-primary transition-colors">Shop</Link>
-        <ChevronRight className="h-3 w-3" />
+        <span>/</span>
         <span className="text-foreground font-medium truncate">{product.name}</span>
       </div>
 
-      <div className="p-0 md:p-4">
+      <div className="p-0">
         <ProductDetailsAarongClient product={product} />
       </div>
     </div>

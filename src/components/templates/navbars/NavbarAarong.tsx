@@ -338,8 +338,8 @@ export default function NavbarAarong() {
     <>
       {/* ── Navbar Wrapper ── */}
       <header className={`sticky top-0 z-50 w-full transition-all duration-300 border-b border-muted/30 lg:border-b-0 ${isScrolled
-        ? 'bg-background/95 backdrop-blur-md shadow-md lg:border-b lg:border-border/30 lg:py-2'
-        : 'bg-background lg:py-3'
+        ? 'bg-background/95 backdrop-blur-md shadow-md lg:border-b lg:border-border/30 lg:py-1.5'
+        : 'bg-background lg:py-1.5'
         }`}>
         <div className="w-full px-2 lg:px-6 relative">
 
@@ -916,13 +916,13 @@ export default function NavbarAarong() {
             <div className="hidden lg:flex gap-3 items-stretch">
 
               {/* Logo Image Column (Spanning both rows) */}
-              <div className="flex items-center justify-center border-r border-border/10 pr-3 shrink-0 py-1">
-                <Link href="/" className="relative block w-[85px] h-[85px] transition-transform hover:scale-105">
+              <div className="flex items-center justify-center border-r border-border/10 pr-3 shrink-0 py-0.5">
+                <Link href="/" className="relative block w-[64px] h-[64px] xl:w-[68px] xl:h-[68px] transition-transform hover:scale-105">
                   <Image
                     src={settings.logoUrl || "/logo.webp"}
                     alt={`${settings.brandName || process.env.NEXT_PUBLIC_STORE_NAME || "Store"} Logo`}
                     fill
-                    sizes="85px"
+                    sizes="68px"
                     className="object-contain"
                     priority
                   />
@@ -930,17 +930,17 @@ export default function NavbarAarong() {
               </div>
 
               {/* Content Column (Row 1 and Row 2) */}
-              <div className="flex-1 flex flex-col justify-between py-1">
+              <div className="flex-1 flex flex-col justify-center gap-0.5 py-0">
 
                 {/* Row 1: Logo Brand Name, Sub-Brands, Utilities */}
-                <div className="flex items-center justify-between w-full border-b border-border/10 pb-2 gap-4">
+                <div className="flex items-center justify-between w-full border-b border-border/10 pb-1 gap-4">
                   {/* Logo Brand Name Text Only */}
-                  <Link href="/" className="text-xl xl:text-2xl uppercase text-foreground transition-colors hover:text-primary font-black tracking-tighter font-logo shrink-0">
+                  <Link href="/" className="text-lg xl:text-xl uppercase text-foreground transition-colors hover:text-primary font-black tracking-tighter font-logo shrink-0">
                     {settings.brandName || process.env.NEXT_PUBLIC_STORE_NAME || "Store"}
                   </Link>
 
                   {/* Right-side Utilities */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 xl:gap-2.5">
                     {/* Search Bar Container */}
                     <div ref={searchContainerRef} className="relative">
                       <form onSubmit={handleSearchSubmit} className="relative flex items-center">
@@ -949,7 +949,7 @@ export default function NavbarAarong() {
                           placeholder={isListening ? "Listening..." : "Search products..."}
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-48 xl:w-60 h-9 pl-9 pr-8 text-xs bg-muted/40 border border-border/70 focus:border-primary focus:bg-background outline-none rounded-full transition-all"
+                          className="w-48 xl:w-60 h-8 pl-9 pr-8 text-xs bg-muted/40 border border-border/70 focus:border-primary focus:bg-background outline-none rounded-full transition-all"
                         />
                         <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
 
@@ -957,7 +957,7 @@ export default function NavbarAarong() {
                           type="button"
                           onClick={handleVoiceSearch}
                           aria-label="Voice Search"
-                          className={`absolute right-2.5 p-1 rounded-full text-muted-foreground hover:text-primary transition-colors ${isListening ? 'text-primary animate-pulse bg-primary/10' : ''}`}
+                          className={`absolute right-2 p-1 rounded-full text-muted-foreground hover:text-primary transition-colors ${isListening ? 'text-primary animate-pulse bg-primary/10' : ''}`}
                         >
                           {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
                         </button>
@@ -1009,7 +1009,7 @@ export default function NavbarAarong() {
                     </div>
 
                     {/* Wishlist Link */}
-                    <Link href="/dashboard/wishlist" className="relative p-2 text-foreground hover:text-primary transition-colors">
+                    <Link href="/dashboard/wishlist" className="relative p-1.5 text-foreground hover:text-primary transition-colors">
                       <Heart className="h-5 w-5" />
                       {wishlistCount > 0 && (
                         <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-md">
@@ -1020,7 +1020,7 @@ export default function NavbarAarong() {
 
                     {/* Cart Drawer */}
                     <CartDrawer>
-                      <button className="relative p-2 text-foreground hover:text-primary transition-colors">
+                      <button className="relative p-1.5 text-foreground hover:text-primary transition-colors">
                         <ShoppingCart className="h-5 w-5" />
                         {cartCount > 0 && (
                           <span className="absolute top-0 right-0 h-4 min-w-[16px] px-1 bg-primary text-primary-foreground text-[9px] font-black rounded-full flex items-center justify-center shadow-md">
@@ -1040,15 +1040,15 @@ export default function NavbarAarong() {
                           <div className="relative group/avatar">
                             <DropdownMenuTrigger asChild>
                               <button
-                                className="flex items-center px-2 py-1.5 rounded-xl transition-all cursor-pointer outline-none hover:scale-110"
+                                className="flex items-center px-1.5 py-1 rounded-xl transition-all cursor-pointer outline-none hover:scale-110"
                                 aria-label="Account menu"
                               >
-                                <div className="h-8 w-8 rounded-full border-2 border-primary/20 overflow-hidden group-hover/avatar:border-primary transition-all">
+                                <div className="h-7 w-7 rounded-full border-2 border-primary/20 overflow-hidden group-hover/avatar:border-primary transition-all">
                                   <Image
                                     src={session.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user?.name || 'U')}`}
                                     alt={session.user?.name || 'User'}
-                                    width={32}
-                                    height={32}
+                                    width={28}
+                                    height={28}
                                     className="h-full w-full object-cover"
                                   />
                                 </div>
@@ -1127,7 +1127,7 @@ export default function NavbarAarong() {
                       ) : (
                         <Link
                           href="/login"
-                          className="h-10 w-10 flex items-center justify-center rounded-xl transition-all cursor-pointer hover:text-primary"
+                          className="p-1.5 flex items-center justify-center rounded-lg transition-all cursor-pointer hover:text-primary"
                           aria-label="Log in"
                         >
                           <User className="h-5 w-5" />
@@ -1138,14 +1138,14 @@ export default function NavbarAarong() {
                 </div>
 
                 {/* Row 2: Category Navigation Menu */}
-                <div className="flex pt-1.5 pb-1">
+                <div className="flex pt-0.5 pb-0">
                   <nav className="flex items-center gap-6 xl:gap-8">
                     {mainCategories.map((cat) => {
                       const subs = getSubcategories(cat._id);
                       return (
                         <div
                           key={cat._id}
-                          className="py-1"
+                          className="py-0.5"
                           onMouseEnter={() => handleMegaMenuEnter(cat._id)}
                           onMouseLeave={handleMegaMenuLeave}
                         >

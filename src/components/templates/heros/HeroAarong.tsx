@@ -104,7 +104,7 @@ export default function HeroAarong({ banners, layout }: HeroSliderProps) {
   const isAarongLayout = layout === 'aarong';
 
   return (
-    <div className={`relative w-full ${isAarongLayout ? 'aspect-[21/9] lg:max-h-[calc(100vh-6.5rem)]' : 'h-[65vh] sm:h-[80vh] md:h-[90vh] lg:h-[95vh]'} overflow-hidden bg-muted group`}>
+    <div className={`relative w-full ${isAarongLayout ? 'h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-5rem)] xl:h-[calc(100vh-5.25rem)]' : 'h-[65vh] sm:h-[80vh] md:h-[90vh] lg:h-[95vh]'} overflow-hidden bg-muted group`}>
 
       {/* Embla Viewport */}
       <div className="w-full h-full overflow-hidden" ref={emblaRef}>
