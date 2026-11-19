@@ -9,7 +9,7 @@ import { ShoppingCart, Heart, Share2, Star, Minus, Plus, ChevronRight, LayoutDas
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addToCart } from '@/store/slices/cartSlice';
+import { addToCart, isMatchingCartItem } from '@/store/slices/cartSlice';
 import { toggleWishlist } from '@/store/slices/wishlistSlice';
 import { toast } from 'sonner';
 import { ttEvent } from '@/lib/tiktok';
@@ -34,6 +34,7 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
   const { data: session } = useSession();
   const dispatch = useAppDispatch();
   const wishlist = useAppSelector((state) => state.wishlist.items);
+  const cartItems = useAppSelector((state) => state.cart.items);
   const isInWishlist = wishlist.includes(product._id);
   const isAdmin = (session?.user as any)?.role === 'admin';
 
@@ -128,6 +129,10 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
 
   const handleAddToCart = () => {
     if (displayStock <= 0) return toast.error(t('store.product.out_of_stock') as string || 'Selection Unavailable');
+    if (cartItems.some((item) => isMatchingCartItem(item, { productId: product._id, color: currentColor || undefined, size: currentSize || undefined }))) {
+      toast.info('Already in cart! You can adjust quantity from the cart.');
+      return;
+    }
     dispatch(addToCart({
       productId: product._id,
       name: product.name,

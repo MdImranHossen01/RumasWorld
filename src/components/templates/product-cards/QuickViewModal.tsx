@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { ShoppingCart, Heart, X, Plus, Minus } from 'lucide-react';
 import { RatingStars } from '@/components/ui/rating-stars';
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useAppDispatch } from '@/store/hooks';
-import { addToCart } from '@/store/slices/cartSlice';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { addToCart, isMatchingCartItem } from '@/store/slices/cartSlice';
 import { toast } from 'sonner';
 import { fbEvent } from '@/lib/fpixel';
 import { ttEvent } from '@/lib/tiktok';
@@ -27,6 +27,7 @@ interface QuickViewModalProps {
 
 export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps) {
   const dispatch = useAppDispatch();
+  const cartItems = useAppSelector((state) => state.cart.items);
   const { data: session } = useSession();
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -160,8 +161,26 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
 
   const router = useRouter();
 
+  const isInCart = cartItems.some((item) =>
+    isMatchingCartItem(item, {
+      productId: product._id,
+      color: selectedColor || undefined,
+      size: selectedSize || undefined,
+    })
+  );
+
   const handleAddToCart = (e: React.MouseEvent, redirect: boolean = false) => {
     e.preventDefault();
+
+    if (isInCart) {
+      if (redirect) {
+        router.push('/checkout');
+        onClose();
+      } else {
+        toast.info('Already in cart! You can adjust quantity from the cart.');
+      }
+      return;
+    }
 
     dispatch(addToCart({
       productId: product._id,
@@ -395,7 +414,7 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                   className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold h-11 rounded-none shadow-none flex items-center justify-center gap-2"
                 >
                   <ShoppingCart className="h-4 w-4" />
-                  ADD TO CART
+                  {isInCart ? 'ALREADY IN CART' : 'ADD TO CART'}
                 </Button>
 
                 {/* Buy Now */}

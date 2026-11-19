@@ -11,11 +11,17 @@ interface AddToCartButtonProps {
 }
 
 export function AddToCartButton({ product, className }: AddToCartButtonProps) {
-  const { addItem } = useCart();
+  const { addItem, isInCart } = useCart();
+  const productId = product._id || product.id;
+  const alreadyAdded = isInCart(productId);
 
   const handleAddToCart = () => {
+    if (alreadyAdded) {
+      toast.info('Already in cart! You can adjust quantity from the cart.');
+      return;
+    }
     addItem({
-      productId: product._id || product.id,
+      productId,
       name: product.name,
       price: product.salePrice ?? product.price,
       quantity: 1,
@@ -30,7 +36,7 @@ export function AddToCartButton({ product, className }: AddToCartButtonProps) {
       className={className}
     >
       <ShoppingCart className="mr-2 h-4 w-4" />
-      Add to Cart
+      {alreadyAdded ? 'Already in Cart' : 'Add to Cart'}
     </Button>
   );
 }

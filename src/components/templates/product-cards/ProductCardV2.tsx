@@ -9,7 +9,7 @@ import { useSession } from 'next-auth/react';
 import { ShoppingCart, Heart, Eye, MoreVertical, Edit, Trash2, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addToCart } from '@/store/slices/cartSlice';
+import { addToCart, isMatchingCartItem } from '@/store/slices/cartSlice';
 import { toggleWishlist } from '@/store/slices/wishlistSlice';
 import { toast } from 'sonner';
 import Swal from 'sweetalert2';
@@ -55,6 +55,7 @@ export default function ProductCardV2({ product: initialProduct, isFlashSale }: 
   const dispatch = useAppDispatch();
   const { data: session, status } = useSession();
   const wishlist = useAppSelector((state) => state.wishlist.items);
+  const cartItems = useAppSelector((state) => state.cart.items);
   const isInWishlist = wishlist.includes(initialProduct._id);
   const router = useRouter();
   const isAdmin = (session?.user as any)?.role === 'admin';
@@ -100,6 +101,10 @@ export default function ProductCardV2({ product: initialProduct, isFlashSale }: 
   };
 
   const executeAddToCart = () => {
+    if (cartItems.some((item) => isMatchingCartItem(item, { productId: product._id }))) {
+      toast.info('Already in cart! You can adjust quantity from the cart.');
+      return;
+    }
     dispatch(addToCart({
       productId: product._id,
       name: product.name,

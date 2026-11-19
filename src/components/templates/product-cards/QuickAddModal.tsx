@@ -10,8 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { ShoppingCart } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useAppDispatch } from '@/store/hooks';
-import { addToCart } from '@/store/slices/cartSlice';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { addToCart, isMatchingCartItem } from '@/store/slices/cartSlice';
 import { toast } from 'sonner';
 import Image from 'next/image';
 
@@ -23,6 +23,7 @@ interface QuickAddModalProps {
 
 export function QuickAddModal({ product, isOpen, onClose }: QuickAddModalProps) {
   const dispatch = useAppDispatch();
+  const cartItems = useAppSelector((state) => state.cart.items);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
 
@@ -98,6 +99,19 @@ export function QuickAddModal({ product, isOpen, onClose }: QuickAddModalProps) 
     }
     if (uniqueSizes.length > 0 && !selectedSize) {
       toast.error('Please select a size');
+      return;
+    }
+
+    const alreadyInCart = cartItems.some((item) =>
+      isMatchingCartItem(item, {
+        productId: product._id,
+        color: selectedColor || undefined,
+        size: selectedSize || undefined,
+      })
+    );
+    if (alreadyInCart) {
+      toast.info('Already in cart! You can adjust quantity from the cart.');
+      onClose();
       return;
     }
 

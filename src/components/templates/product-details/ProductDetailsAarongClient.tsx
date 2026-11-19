@@ -6,7 +6,7 @@ import { Heart, Minus, Plus, Share2, X, ChevronLeft, ChevronRight } from 'lucide
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addToCart } from '@/store/slices/cartSlice';
+import { addToCart, isMatchingCartItem } from '@/store/slices/cartSlice';
 import { toggleWishlist } from '@/store/slices/wishlistSlice';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
@@ -28,6 +28,7 @@ export default function ProductDetailsAarongClient({ product }: ProductDetailsAa
   const dispatch = useAppDispatch();
   const { data: session, status } = useSession();
   const wishlist = useAppSelector((state) => state.wishlist.items);
+  const cartItems = useAppSelector((state) => state.cart.items);
   const isInWishlist = wishlist.includes(product?._id);
   const router = useRouter();
 
@@ -159,10 +160,25 @@ export default function ProductDetailsAarongClient({ product }: ProductDetailsAa
     return '/placeholder.png';
   }, [allImages, selectedImage]);
 
-  const handleAddToCart = () => {
+  const isInCart = cartItems.some((item) =>
+    isMatchingCartItem(item, {
+      productId: product?._id,
+      color: selectedColor || undefined,
+      size: selectedSize || undefined,
+    })
+  );
+
+  const handleAddToCart = (silentIfExists: boolean = false) => {
     if (displayStock <= 0) {
       toast.error(t('store.product.out_of_stock') as string || 'Product is out of stock');
-      return;
+      return false;
+    }
+
+    if (isInCart) {
+      if (!silentIfExists) {
+        toast.info('Already in cart! You can adjust quantity from the cart.');
+      }
+      return true;
     }
 
     dispatch(addToCart({
@@ -199,7 +215,7 @@ export default function ProductDetailsAarongClient({ product }: ProductDetailsAa
   };
 
   const handleBuyNow = () => {
-    const success = handleAddToCart();
+    const success = handleAddToCart(true);
     if (success) {
       router.push('/checkout');
     }
@@ -518,11 +534,15 @@ export default function ProductDetailsAarongClient({ product }: ProductDetailsAa
           {/* Row 1: ADD TO BAG, Heart, Share */}
           <div className="flex items-center gap-2">
             <Button
-              onClick={handleAddToCart}
+              onClick={() => handleAddToCart(false)}
               disabled={displayStock <= 0}
               className="flex-1 h-11 bg-black hover:bg-neutral-900 text-white rounded-none font-bold text-xs uppercase tracking-[0.2em] shadow-sm transition duration-200 disabled:bg-neutral-400"
             >
-              {displayStock <= 0 ? 'OUT OF STOCK' : (t('store.product.add_to_cart') || 'ADD TO BAG')}
+              {displayStock <= 0
+                ? 'OUT OF STOCK'
+                : isInCart
+                  ? 'ALREADY IN CART'
+                  : (t('store.product.add_to_cart') || 'ADD TO BAG')}
             </Button>
 
             <button

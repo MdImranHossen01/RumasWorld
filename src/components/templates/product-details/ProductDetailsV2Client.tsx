@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addToCart } from '@/store/slices/cartSlice';
+import { addToCart, isMatchingCartItem } from '@/store/slices/cartSlice';
 import { toggleWishlist } from '@/store/slices/wishlistSlice';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
@@ -47,6 +47,7 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
   const dispatch = useAppDispatch();
   const { data: session } = useSession();
   const wishlist = useAppSelector((state) => state.wishlist.items);
+  const cartItems = useAppSelector((state) => state.cart.items);
   const isInWishlist = wishlist.includes(product?._id);
   const router = useRouter();
   const isAdmin = (session?.user as any)?.role === 'admin';
@@ -157,6 +158,10 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
       return;
     }
 
+    if (cartItems.some((item) => isMatchingCartItem(item, { productId: product._id, color: currentColor || undefined, size: currentSize || undefined }))) {
+      toast.info('Already in cart! You can adjust quantity from the cart.');
+      return;
+    }
     dispatch(addToCart({
       productId: product._id,
       name: product.name,

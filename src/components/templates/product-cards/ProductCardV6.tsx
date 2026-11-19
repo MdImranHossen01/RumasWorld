@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { ShoppingCart, Heart, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addToCart, clearCart } from '@/store/slices/cartSlice';
+import { addToCart, clearCart, isMatchingCartItem } from '@/store/slices/cartSlice';
 import { toggleWishlist } from '@/store/slices/wishlistSlice';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
@@ -50,6 +50,7 @@ export default function ProductCardV6({ product: initialProduct, isFlashSale, pr
   const router = useRouter();
   const { data: session, status } = useSession();
   const wishlist = useAppSelector((state) => state.wishlist.items);
+  const cartItems = useAppSelector((state) => state.cart.items);
   const isInWishlist = wishlist.includes(initialProduct._id);
 
   const firstVariant = initialProduct.variants && initialProduct.variants.length > 0 ? initialProduct.variants[0] : null;
@@ -83,6 +84,10 @@ export default function ProductCardV6({ product: initialProduct, isFlashSale, pr
     if (hasVariants) {
       setShowQuickViewModal(true);
     } else {
+      if (cartItems.some((item) => isMatchingCartItem(item, { productId: product._id }))) {
+        toast.info('Already in cart! You can adjust quantity from the cart.');
+        return;
+      }
       dispatch(addToCart({
         productId: product._id,
         name: product.name,
