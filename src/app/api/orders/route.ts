@@ -39,7 +39,7 @@ const orderSchema = z.object({
   shippingAddress: z.object({
     fullName: z.string().min(2, 'Full name is required'),
     phone: z.string().transform((val) => normalizePhoneNumber(val)).refine((val) => val.length === 11, 'Invalid phone number'),
-    email: z.string().email('Invalid email address'),
+    email: z.string().email('Invalid email address').or(z.literal('')).optional(),
     street: z.string().min(1, 'Street is required'),
     city: z.string().min(1, 'City is required'),
     state: z.string().min(1, 'State is required'),
@@ -132,8 +132,14 @@ export async function POST(req: NextRequest) {
     if (sessionUser?.user?.id) {
       user = await User.findOne({ _id: sessionUser.user.id }).session(session);
     } else {
-      // Guest Checkout: Find or Create User by Email
-      user = await User.findOne({ email: shippingAddress.email.toLowerCase() }).session(session);
+      // Guest Checkout: Find or Create User by Email (or fallback to phone-based guest email)
+      const providedEmail = shippingAddress.email?.trim().toLowerCase();
+      const guestEmail = providedEmail || `${shippingAddress.phone}@guest.rumasworld.com`;
+      user = await User.findOne(
+        providedEmail
+          ? { email: providedEmail }
+          : { $or: [{ email: guestEmail }, { phone: shippingAddress.phone }] }
+      ).session(session);
 
       if (user) {
         // If user exists but lacks phone or address, update it
@@ -160,7 +166,7 @@ export async function POST(req: NextRequest) {
         // Create a new user for this guest
         const [newUser] = await User.create([{
           name: shippingAddress.fullName,
-          email: shippingAddress.email.toLowerCase(),
+          email: guestEmail,
           phone: shippingAddress.phone,
           role: 'user',
           addresses: [{

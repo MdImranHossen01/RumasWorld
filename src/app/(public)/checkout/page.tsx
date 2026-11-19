@@ -44,6 +44,7 @@ import {
 const checkoutSchema = z.object({
   fullName: z.string().min(2, 'নাম আবশ্যক'),
   phone: z.string().min(11, 'সঠিক মোবাইল নম্বর দিন'),
+  email: z.string().email('সঠিক ইমেইল ঠিকানা দিন').or(z.literal('')).optional(),
   street: z.string().min(5, 'ঠিকানা আবশ্যক'),
   deliveryArea: z.enum(['inside', 'outside'], {
     message: 'ডেলিভারি এলাকা নির্বাচন করুন',
@@ -84,6 +85,7 @@ function CheckoutContent() {
     defaultValues: {
       fullName: '',
       phone: '',
+      email: '',
       street: '',
       deliveryArea: 'inside',
       paymentMethod: 'COD',
@@ -133,6 +135,7 @@ function CheckoutContent() {
             form.reset({
               fullName: profileData.name || '',
               phone: profileData.phone || '',
+              email: profileData.email || '',
               street: profileData.address || '',
               deliveryArea: (profileData.division?.toLowerCase().includes('dhaka') || profileData.district?.toLowerCase().includes('dhaka')) ? 'inside' : 'outside',
               paymentMethod: 'COD',
@@ -371,7 +374,7 @@ function CheckoutContent() {
         shippingAddress: {
           fullName: values.fullName,
           phone: cleanedPhone || values.phone,
-          email: profile?.email || `${cleanedPhone || Date.now()}@store.com`,
+          email: values.email?.trim() || profile?.email || undefined,
           street: values.street,
           city: values.deliveryArea === 'inside' ? 'Dhaka' : 'Outside Dhaka',
           state: values.deliveryArea === 'inside' ? 'Dhaka' : 'Outside Dhaka',
@@ -422,7 +425,7 @@ function CheckoutContent() {
           };
 
           const purchaseUserData: any = {
-            em: profile?.email || '',
+            em: values.email?.trim() || profile?.email || '',
             ph: values.phone,
             fn: nameParts[0] || '',
             ln: nameParts.slice(1).join(' ') || '',
@@ -754,6 +757,27 @@ function CheckoutContent() {
                               let sanitized = value.replace(/[^\d০-৯+]/g, '');
                               field.onChange(sanitized);
                             }}
+                            className="h-11 focus-visible:ring-primary/20"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1.5">
+                          <span>ইমেইল অ্যাড্রেস</span>
+                          <span className="text-xs font-normal text-muted-foreground">(ঐচ্ছিক - ইনভয়েস ও অর্ডারের আপডেট পেতে)</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="যেমন: name@example.com"
+                            {...field}
                             className="h-11 focus-visible:ring-primary/20"
                           />
                         </FormControl>
