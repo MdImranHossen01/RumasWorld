@@ -137,7 +137,6 @@ export async function POST(req: NextRequest) {
             bill._id.toString(),
             date ? new Date(date) : new Date(),
             undefined,
-            undefined,
             dbSession
           );
         }
@@ -164,7 +163,6 @@ export async function POST(req: NextRequest) {
             `Supplier Bill Upfront Payment: ${billNo}`,
             bill._id.toString(),
             date ? new Date(date) : new Date(),
-            undefined,
             undefined,
             dbSession
           );

@@ -23,7 +23,6 @@ export async function GET(req: NextRequest) {
     await connectToDatabase();
 
     // Only show customers with role 'user'
-    // Wholesalers → /admin/wholesalers, Employees/Managers/Admins → /admin/employees
     const matchQuery: any = { role: 'user' };
     if (search) {
       matchQuery.$or = [
@@ -174,7 +173,7 @@ export async function PATCH(req: NextRequest) {
 
     const { userId, role } = await req.json();
 
-    if (!userId || !['user', 'admin', 'manager', 'wholesaler'].includes(role)) {
+    if (!userId || !['user', 'admin', 'manager'].includes(role)) {
       return NextResponse.json({ message: 'Invalid data' }, { status: 400 });
     }
 

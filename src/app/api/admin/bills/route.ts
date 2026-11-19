@@ -286,7 +286,6 @@ export async function POST(req: NextRequest) {
           invoiceNo,
           new Date(),
           undefined,
-          undefined,
           dbSession
         );
 
@@ -301,7 +300,6 @@ export async function POST(req: NextRequest) {
             invoiceNo,
             new Date(),
             undefined,
-            undefined,
             dbSession
           );
           // Credit Accounts Receivable (decreases receivable asset)
@@ -312,7 +310,6 @@ export async function POST(req: NextRequest) {
             `Upfront payment credit for Bill ${invoiceNo}`,
             invoiceNo,
             new Date(),
-            undefined,
             undefined,
             dbSession
           );

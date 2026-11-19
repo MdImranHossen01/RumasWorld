@@ -9,17 +9,10 @@ export interface IProduct extends Document {
   description: string;
   price: number;
   salePrice?: number;
-  wholesalePrice?: number;
-  wholesaleSalePrice?: number;
-  showroomPrice?: number;
   purchasePrice?: number;
   discountRate?: number;
   sku: string;
   stock: number;
-  showroomStocks?: {
-    showroom: mongoose.Types.ObjectId;
-    stock: number;
-  }[];
   batches?: {
     batchNumber: string;
     expiryDate?: Date;
@@ -39,9 +32,6 @@ export interface IProduct extends Document {
     size?: string;
     price: number;
     salePrice?: number;
-    wholesalePrice?: number;
-    wholesaleSalePrice?: number;
-    showroomPrice?: number;
     purchasePrice?: number;
     discountRate?: number;
     stock: number;
@@ -63,6 +53,8 @@ export interface IProduct extends Document {
   views: number;
   totalSales: number;
   embedding?: number[];
+  metaTitle?: string;
+  metaDescription?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -77,31 +69,13 @@ const ProductSchema: Schema<IProduct> = new Schema(
       type: Number,
       min: [0, 'Sale price cannot be negative'],
     },
-    wholesalePrice: {
-      type: Number,
-      min: [0, 'Wholesale price cannot be negative'],
-    },
-    wholesaleSalePrice: {
-      type: Number,
-      min: [0, 'Wholesale sale price cannot be negative'],
-    },
     purchasePrice: { 
       type: Number,
       min: [0, 'Purchase price cannot be negative'],
     },
-    showroomPrice: {
-      type: Number,
-      min: [0, 'Showroom price cannot be negative'],
-    },
     discountRate: { type: Number },
     sku: { type: String, required: true, unique: true },
     stock: { type: Number, required: true, default: 0, min: [0, 'Stock cannot be negative'] },
-    showroomStocks: [
-      {
-        showroom: { type: Schema.Types.ObjectId, ref: 'Showroom', required: true },
-        stock: { type: Number, required: true, default: 0, min: [0, 'Stock cannot be negative'] },
-      }
-    ],
     batches: [
       {
         batchNumber: { type: String, required: true },
@@ -125,9 +99,6 @@ const ProductSchema: Schema<IProduct> = new Schema(
         size: { type: String },
         price: { type: Number, required: true, min: [0, 'Price cannot be negative'] },
         salePrice: { type: Number, min: [0, 'Sale price cannot be negative'] },
-        wholesalePrice: { type: Number, min: [0, 'Wholesale price cannot be negative'] },
-        wholesaleSalePrice: { type: Number, min: [0, 'Wholesale sale price cannot be negative'] },
-        showroomPrice: { type: Number, min: [0, 'Showroom price cannot be negative'] },
         purchasePrice: { type: Number, min: [0, 'Purchase price cannot be negative'] },
         discountRate: { type: Number },
         stock: { type: Number, required: true, default: 0, min: [0, 'Stock cannot be negative'] },
@@ -152,6 +123,8 @@ const ProductSchema: Schema<IProduct> = new Schema(
     views: { type: Number, default: 0, min: [0, 'Views cannot be negative'] },
     totalSales: { type: Number, default: 0, min: [0, 'Total sales cannot be negative'] },
     embedding: { type: [Number] },
+    metaTitle: { type: String, maxlength: 70 },
+    metaDescription: { type: String, maxlength: 160 },
   },
   { timestamps: true }
 );
@@ -160,26 +133,40 @@ ProductSchema.index({ name: 1 }); // Optimized for search
 ProductSchema.index({ categories: 1 }); // Optimized for category filtering
 
 ProductSchema.pre('validate', function(this: any) {
-  // Main product validation
-  if (this.salePrice !== undefined && this.salePrice !== null && this.salePrice > this.price) {
-    throw new Error(
-      `Sale price (৳${this.salePrice}) should be lower than or equal to regular price (৳${this.price})`
-    );
+  // Strict Rule: If product has variants, root pricing MUST be derived strictly from the first variant (ignore main pricing)
+  if (this.variants && Array.isArray(this.variants) && this.variants.length > 0) {
+    const firstV = this.variants[0];
+    if (firstV) {
+      this.price = Number(firstV.price || 0);
+      const rawVSale = firstV.salePrice !== undefined && firstV.salePrice !== null ? Number(firstV.salePrice) : undefined;
+      if (rawVSale !== undefined && rawVSale > 0 && rawVSale < this.price) {
+        this.salePrice = rawVSale;
+        this.discountRate = firstV.discountRate;
+      } else {
+        this.salePrice = undefined;
+        this.discountRate = undefined;
+        firstV.salePrice = undefined;
+        firstV.discountRate = undefined;
+      }
+    }
+  } else {
+    // If no variants, validate main salePrice: if <= 0 or >= price, treat as NO DISCOUNT
+    if (this.salePrice !== undefined && this.salePrice !== null) {
+      if (this.salePrice <= 0 || (this.price !== undefined && this.salePrice >= this.price)) {
+        this.salePrice = undefined;
+        this.discountRate = undefined;
+      }
+    }
   }
 
-  // Variants validation
+  // Variants validation and sanitization
   if (this.variants && Array.isArray(this.variants)) {
-    this.variants.forEach((v: any, index: number) => {
-      if (
-        v.salePrice !== undefined &&
-        v.salePrice !== null &&
-        typeof v.price === 'number' &&
-        v.salePrice > v.price
-      ) {
-        const variantDesc = [v.color, v.size].filter(Boolean).join(' / ') || `at index ${index}`;
-        throw new Error(
-          `Variant "${variantDesc}" has a sale price (৳${v.salePrice}) higher than its regular price (৳${v.price})`
-        );
+    this.variants.forEach((v: any) => {
+      if (v.salePrice !== undefined && v.salePrice !== null) {
+        if (v.salePrice <= 0 || (v.price !== undefined && v.salePrice >= v.price)) {
+          v.salePrice = undefined;
+          v.discountRate = undefined;
+        }
       }
     });
   }

@@ -167,7 +167,6 @@ export async function PATCH(req: NextRequest) {
                 arReference,
                 new Date(),
                 undefined,
-                order.showroom ? order.showroom.toString() : undefined,
                 dbSession
               );
             }

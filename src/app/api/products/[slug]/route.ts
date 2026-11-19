@@ -52,10 +52,10 @@ export async function PUT(
 
     // Whitelist allowed fields to prevent mass-assignment
     const allowedFields = [
-      'name', 'slug', 'description', 'price', 'salePrice', 'discountRate',
+      'name', 'slug', 'metaTitle', 'metaDescription', 'description', 'price', 'salePrice', 'discountRate',
       'sku', 'stock', 'categories', 'tags', 'images',
       'attributes', 'variants', 'isFeatured', 'isNewArrival', 'isPublished', 'deliveryCharge',
-      'wholesalePrice', 'wholesaleSalePrice', 'purchasePrice', 'showroomStocks', 'brand', 'showroomPrice', 'batches'
+      'purchasePrice', 'brand', 'batches'
     ];
     const safeUpdate: any = {};
 
@@ -85,7 +85,7 @@ export async function PUT(
             price: Number.isFinite(parseFloat(v.price)) ? parseFloat(v.price) : 0,
             purchasePrice: Number.isFinite(parseFloat(v.purchasePrice)) ? parseFloat(v.purchasePrice) : undefined,
             salePrice: Number.isFinite(parseFloat(v.salePrice)) ? parseFloat(v.salePrice) : undefined,
-            showroomPrice: Number.isFinite(parseFloat(v.showroomPrice)) ? parseFloat(v.showroomPrice) : undefined,
+
             stock: Number.isFinite(parseInt(v.stock, 10)) ? parseInt(v.stock, 10) : 0,
             discountRate: Number.isFinite(parseFloat(v.discountRate)) ? parseFloat(v.discountRate) : undefined,
           }));
@@ -98,6 +98,11 @@ export async function PUT(
             expiryDate: b.expiryDate ? new Date(b.expiryDate) : undefined,
             stock: Number.isFinite(parseInt(b.stock, 10)) ? parseInt(b.stock, 10) : 0,
           }));
+        }
+
+        // Handle empty brand (clearing brand)
+        if (key === 'brand' && (!value || value === 'none')) {
+          value = null;
         }
 
         safeUpdate[key] = value;

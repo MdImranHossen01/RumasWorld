@@ -29,10 +29,8 @@ export async function GET(req: NextRequest) {
         { name: 'Loan Paid', type: 'expense' },
         { name: 'Packaging Material', type: 'expense' },
         { name: 'Snacks & Entertainment', type: 'expense' },
-        { name: 'Staff Salary', type: 'expense' },
         { name: 'Transportation', type: 'expense' },
         { name: 'Utility Bills', type: 'expense' },
-        { name: 'Wages', type: 'expense' },
         { name: 'Purchase Product', type: 'expense' },
         { name: 'Purchase Materials', type: 'expense' }
       ];

@@ -166,36 +166,6 @@ export function MobileNavbar({ navItems, categories }: MobileNavbarProps) {
                       </DropdownMenuItem>
                     </>
                   )}
-
-                  {(session.user as any)?.role === 'showroom_manager' && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/showroom/dashboard" className="cursor-pointer">
-                          <LayoutDashboard className="mr-2 h-4 w-4" /> Showroom Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-
-                  {(session.user as any)?.role === 'wholesaler' && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/wholesaler/dashboard" className="cursor-pointer">
-                          <LayoutDashboard className="mr-2 h-4 w-4" /> Wholesaler Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-
-                  {(session.user as any)?.role === 'employee' && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/employee/dashboard" className="cursor-pointer">
-                          <LayoutDashboard className="mr-2 h-4 w-4" /> Employee Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut({ callbackUrl: window.location.origin })} className="text-destructive cursor-pointer">

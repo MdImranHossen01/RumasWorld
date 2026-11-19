@@ -43,13 +43,9 @@ interface AdminProduct {
   price: number;
   salePrice?: number;
   stock: number;
-  wholesalePrice?: number;
-  wholesaleSalePrice?: number;
-  showroomPrice?: number;
   purchasePrice?: number;
   brand?: any;
   attributes?: any;
-  showroomStocks?: { showroom: string | { _id: string; name: string }; stock: number }[];
   batches?: { _id?: string, batchNumber: string; expiryDate?: Date; stock: number }[];
   isPublished: boolean;
   images?: string[];
@@ -72,18 +68,6 @@ function ProductsContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const { t } = useLanguage();
   const [exportLoading, setExportLoading] = useState(false);
-  const [selectedShowroom, setSelectedShowroom] = useState<string>('all');
-  const [showroomsList, setShowroomsList] = useState<{ _id: string; name: string }[]>([]);
-  
-  // Transfer Modal State
-  const [transferModalOpen, setTransferModalOpen] = useState(false);
-  const [transferProduct, setTransferProduct] = useState<AdminProduct | null>(null);
-  const [transferSource, setTransferSource] = useState<string>('central');
-  const [isAddMode, setIsAddMode] = useState(false);
-  const [targetShowroom, setTargetShowroom] = useState('');
-  const [transferQuantity, setTransferQuantity] = useState(1);
-  const [transferBatchNumber, setTransferBatchNumber] = useState<string>('auto');
-  const [transferring, setTransferring] = useState(false);
   
   // Add Stock Modal State
   const [addStockModalOpen, setAddStockModalOpen] = useState(false);
@@ -126,59 +110,13 @@ function ProductsContent() {
     };
   }, [currentPage]);
 
-  // Fetch showrooms for filter dropdown
-  useEffect(() => {
-    fetch('/api/showrooms')
-      .then(r => r.json())
-      .then(data => {
-        const list = Array.isArray(data) ? data : (data.showrooms || []);
-        setShowroomsList(list.map((s: any) => ({ _id: s._id, name: s.name })));
-      })
-      .catch(() => {});
-  }, []);
-
-  // Helper: get effective stock based on filter
+  // Helper: get effective stock
   const getDisplayStock = (product: AdminProduct): number => {
-    if (selectedShowroom === 'all') {
-      // Total: central + all showroom stocks
-      const showroomTotal = (product.showroomStocks || []).reduce((sum, s) => sum + (s.stock || 0), 0);
-      return (product.stock || 0) + showroomTotal;
-    } else if (selectedShowroom === 'central') {
-      return product.stock || 0;
-    } else {
-      // Specific showroom
-      const found = (product.showroomStocks || []).find(s => {
-        const id = typeof s.showroom === 'object' ? s.showroom._id : s.showroom;
-        return id === selectedShowroom;
-      });
-      return found?.stock ?? 0;
-    }
+    return product.stock || 0;
   };
 
   const getStockLabel = (): string => {
-    if (selectedShowroom === 'all') return t("products.total_stock") as string;
-    if (selectedShowroom === 'central') return `${t("products.central")} ${t("products.stock")}`;
-    const found = showroomsList.find(s => s._id === selectedShowroom);
-    return found ? `${found.name} ${t("products.stock")}` : t("products.stock") as string;
-  };
-
-  const getTransferSourceStock = (product: AdminProduct): number => {
-    const source = selectedShowroom === 'all' ? 'central' : selectedShowroom;
-    if (source === 'central') return product.stock || 0;
-    const found = (product.showroomStocks || []).find(s => {
-      const id = typeof s.showroom === 'object' ? s.showroom._id : s.showroom;
-      return id === source;
-    });
-    return found?.stock ?? 0;
-  };
-
-  const handleInitiateTransfer = (product: AdminProduct) => {
-    setTransferProduct(product);
-    setTransferSource(selectedShowroom === 'all' ? 'central' : selectedShowroom);
-    setTargetShowroom('');
-    setTransferQuantity(1);
-    setIsAddMode(false);
-    setTransferModalOpen(true);
+    return t("products.stock") as string;
   };
 
 
@@ -214,55 +152,6 @@ function ProductsContent() {
       } catch {
         toast.error('Error deleting product');
       }
-    }
-  };
-
-  const handleTransferSubmit = async () => {
-    if (!transferProduct || !targetShowroom || transferQuantity < 1 || targetShowroom === transferSource) {
-      toast.error('Please select a showroom and enter a valid quantity.');
-      return;
-    }
-    const availableStock = (() => {
-      if (transferSource === 'central') return transferProduct.stock;
-      const srStock = transferProduct.showroomStocks?.find(
-        s => typeof s.showroom === 'string' 
-          ? s.showroom === transferSource 
-          : s.showroom._id === transferSource
-      )?.stock;
-      return srStock ?? 0;
-    })();
-
-    if (transferQuantity > availableStock) {
-      toast.error('Insufficient stock in the source location.');
-      return;
-    }
-    
-    setTransferring(true);
-    try {
-      const response = await fetch('/api/admin/stock-transfers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: transferProduct._id,
-          sourceShowroomId: transferSource,
-          showroomId: targetShowroom,
-          quantity: transferQuantity,
-          batchNumber: transferBatchNumber === 'auto' ? undefined : transferBatchNumber
-        })
-      });
-      
-      const data = await response.json();
-      if (response.ok) {
-        toast.success('Stock transfer initiated successfully');
-        setTransferModalOpen(false);
-        fetchProducts(); // Refresh products to show updated central stock
-      } else {
-        toast.error(data.message || 'Failed to initiate stock transfer');
-      }
-    } catch (err) {
-      toast.error('An error occurred during transfer');
-    } finally {
-      setTransferring(false);
     }
   };
 
@@ -515,26 +404,6 @@ function ProductsContent() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {/* Showroom Filter Dropdown */}
-        {showroomsList.length > 0 && (
-          <div className="flex items-center justify-between md:justify-start gap-1.5 bg-muted/50 p-1 rounded-lg border h-9 w-full md:w-auto">
-            <div className="flex items-center gap-1 px-2 shrink-0">
-              <Store className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("products.stock_view")}</span>
-            </div>
-            <select
-              value={selectedShowroom}
-              onChange={(e) => setSelectedShowroom(e.target.value)}
-              className="h-7 bg-transparent text-xs border-none outline-none cursor-pointer pr-2 font-medium flex-1 md:flex-none"
-            >
-              <option value="all">{t("products.total_all")}</option>
-              <option value="central">{t("products.central_only")}</option>
-              {showroomsList.map(s => (
-                <option key={s._id} value={s._id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
 
       <div className="rounded-md border-none md:border bg-transparent md:bg-background overflow-hidden relative">
@@ -677,14 +546,6 @@ function ProductsContent() {
                           <span className="text-muted-foreground">{t("products.sale")}</span>
                           <span className="font-bold text-primary">৳{Math.round(product.salePrice || product.price || 0)}</span>
                         </div>
-                        <div className="flex justify-between gap-2">
-                          <span className="text-muted-foreground">{t("products.sr")}</span>
-                          <span className="font-bold text-violet-600">৳{Math.round(product.showroomPrice || 0)}</span>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                          <span className="text-muted-foreground">{t("products.ws")}</span>
-                          <span className="font-bold text-amber-600">৳{Math.round(product.wholesaleSalePrice || product.wholesalePrice || 0)}</span>
-                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -722,32 +583,6 @@ function ProductsContent() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          {selectedShowroom !== 'all' && selectedShowroom !== 'central' && (
-                            <DropdownMenuItem
-                              disabled={(product.stock || 0) <= 0}
-                              onClick={() => {
-                                setTransferProduct(product);
-                                setTransferSource('central');
-                                setTargetShowroom(selectedShowroom);
-                                setTransferQuantity(1);
-                                setTransferBatchNumber('auto');
-                                setIsAddMode(true);
-                                setTransferModalOpen(true);
-                              }}
-                              className="cursor-pointer text-green-600 focus:text-green-600"
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              <span>{t("products.add_from_central") || "Add from Central"}</span>
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            disabled={getTransferSourceStock(product) <= 0}
-                            onClick={() => handleInitiateTransfer(product)}
-                            className="cursor-pointer text-blue-600 focus:text-blue-600"
-                          >
-                            <Send className="h-4 w-4 mr-2" />
-                            <span>{t("products.transfer_stock") || "Transfer Stock"}</span>
-                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
                               setAddStockProduct(product);
@@ -872,28 +707,6 @@ function ProductsContent() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {selectedShowroom !== 'all' && selectedShowroom !== 'central' && (
-                            <DropdownMenuItem 
-                              disabled={(product.stock || 0) <= 0}
-                              onClick={() => {
-                                setTransferProduct(product);
-                                setTransferSource('central');
-                                setTargetShowroom(selectedShowroom);
-                                setTransferQuantity(1);
-                                setTransferBatchNumber('auto');
-                                setIsAddMode(true);
-                                setTransferModalOpen(true);
-                              }}
-                            >
-                              <Plus className="mr-2 h-4 w-4 text-green-600" /> {t("products.add_stock")}
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            disabled={getTransferSourceStock(product) <= 0}
-                            onClick={() => handleInitiateTransfer(product)}
-                          >
-                            <Send className="mr-2 h-4 w-4 text-blue-500" /> {t("products.transfer_stock")}
-                          </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => {
                               setAddStockProduct(product);
@@ -967,18 +780,6 @@ function ProductsContent() {
                         ৳{Math.round(product.salePrice || product.price || 0)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between py-1.5 border-t border-border/50">
-                      <span className="text-muted-foreground font-medium">{t("products.showroom_price")}</span>
-                      <span className="font-bold text-violet-600 text-base md:text-sm">
-                        ৳{Math.round(product.showroomPrice || 0)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between py-1.5 border-t border-border/50">
-                      <span className="text-muted-foreground font-medium">{t("products.wholesale_price")}</span>
-                      <span className="font-bold text-amber-600 text-base md:text-sm">
-                        ৳{Math.round(product.wholesaleSalePrice || product.wholesalePrice || 0)}
-                      </span>
-                    </div>
                   </div>
                 </div>
               )
@@ -1002,91 +803,6 @@ function ProductsContent() {
           />
         </div>
       )}
-
-      {/* Transfer Stock Modal */}
-      <Dialog open={transferModalOpen} onOpenChange={setTransferModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{isAddMode ? t("products.add_stock_from_central") : t("products.modal_transfer_stock")}</DialogTitle>
-          </DialogHeader>
-          {transferProduct && (() => {
-            const getAvailableStock = () => {
-              if (transferSource === 'central') return transferProduct.stock;
-              const srStock = transferProduct.showroomStocks?.find(
-                s => typeof s.showroom === 'string' 
-                  ? s.showroom === transferSource 
-                  : s.showroom._id === transferSource
-              )?.stock;
-              return srStock ?? 0;
-            };
-            const availableStock = getAvailableStock();
-            
-            return (
-              <div className="grid gap-4 py-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold">{t("products.product_label")}</span>
-                  <span className="text-sm text-muted-foreground">{transferProduct.name}</span>
-                  <span className="text-xs text-muted-foreground">{t("products.available_stock_in")} {transferSource === 'central' ? t("products.central") : showroomsList.find(s => s._id === transferSource)?.name || t("products.source")}: {availableStock}</span>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <label className="text-right text-sm font-medium">{t("products.destination")}</label>
-                  <select
-                    className="col-span-3 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
-                    value={targetShowroom}
-                    onChange={(e) => setTargetShowroom(e.target.value)}
-                    disabled={isAddMode}
-                  >
-                    <option value="" disabled>{t("products.select_destination")}</option>
-                    {transferSource !== 'central' && (
-                      <option value="central">{t("products.central_warehouse")}</option>
-                    )}
-                    {showroomsList
-                      .filter(s => s._id !== transferSource)
-                      .map(s => (
-                        <option key={s._id} value={s._id}>{s.name}</option>
-                      ))}
-                  </select>
-                </div>
-                {/* Batch Selection */}
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <label className="text-right text-sm font-medium">Batch</label>
-                  <select
-                    className="col-span-3 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={transferBatchNumber}
-                    onChange={(e) => setTransferBatchNumber(e.target.value)}
-                  >
-                    <option value="auto">Auto (FIFO)</option>
-                    {Array.from(new Set([
-                      ...(transferProduct.batches || []).map(b => b.batchNumber),
-                      ...(transferProduct.variants || []).flatMap(v => (v.batches || []).map((b: any) => b.batchNumber))
-                    ])).filter(Boolean).map(batchNo => (
-                      <option key={batchNo} value={batchNo}>{batchNo}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <label className="text-right text-sm font-medium">{t("products.quantity")}</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max={availableStock > 0 ? availableStock : 1}
-                    className="col-span-3"
-                    value={transferQuantity}
-                    onChange={(e) => setTransferQuantity(parseInt(e.target.value) || 1)}
-                  />
-                </div>
-              </div>
-            );
-          })()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTransferModalOpen(false)}>{t("products.cancel")}</Button>
-            <Button onClick={handleTransferSubmit} disabled={transferring}>
-              {transferring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              {t("products.send_stock")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Add Stock Modal */}
       <Dialog open={addStockModalOpen} onOpenChange={setAddStockModalOpen}>

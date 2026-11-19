@@ -55,8 +55,7 @@ export async function syncCreditOrdersToLedgerAR() {
           `Credit Order Confirmed #${shortId}`,
           arReference,
           order.createdAt ? new Date(order.createdAt) : new Date(),
-          undefined,
-          order.showroom ? order.showroom.toString() : undefined
+          undefined
         );
       }
     }
@@ -73,7 +72,6 @@ export async function logLedgerTransaction(
   reference?: string,
   date: Date = new Date(),
   transferId?: string,
-  showroomId?: string,
   session?: any
 ) {
   await connectToDatabase();
@@ -103,7 +101,6 @@ export async function logLedgerTransaction(
     reference,
     transferId,
     balanceAfter,
-    showroom: showroomId || undefined,
   });
 
   const latestTx = await LedgerTransaction.findOne({ account: account._id })
@@ -181,8 +178,7 @@ export async function logOrderPaymentToLedger(order: any) {
       description,
       reference,
       order.createdAt ? new Date(order.createdAt) : new Date(),
-      undefined,
-      order.showroom ? order.showroom.toString() : undefined
+      undefined
     );
 
     // If it is a credit order payment, we also need to decrease AR
@@ -198,8 +194,7 @@ export async function logOrderPaymentToLedger(order: any) {
           `Payment received for Credit Order #${shortId}`,
           arReference,
           new Date(), // Use current date for payment reception
-          undefined,
-          order.showroom ? order.showroom.toString() : undefined
+          undefined
         );
         console.log(`[Ledger] Logged AR credit for Order #${shortId} successfully.`);
       }

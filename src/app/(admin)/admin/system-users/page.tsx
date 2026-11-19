@@ -53,7 +53,7 @@ interface SystemUser {
   name: string;
   email?: string;
   phone?: string;
-  role: 'admin' | 'manager' | 'showroom_manager';
+  role: 'admin' | 'manager';
   image?: string;
   createdAt: string;
   lastActive?: string;
@@ -78,7 +78,7 @@ function SystemUsersContent() {
   const [assignName, setAssignName] = useState('');
   const [assignIdentifier, setAssignIdentifier] = useState('');
   const [assignPassword, setAssignPassword] = useState('');
-  const [assignRole, setAssignRole] = useState<'admin' | 'manager' | 'showroom_manager'>('admin');
+  const [assignRole, setAssignRole] = useState<'admin' | 'manager'>('admin');
   const [assignImage, setAssignImage] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
 
@@ -242,7 +242,7 @@ function SystemUsersContent() {
             System Users
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm font-medium mt-0.5">
-            Manage administrative personnel, project managers, and showroom managers.
+            Manage administrative personnel and project managers.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -362,12 +362,10 @@ function SystemUsersContent() {
                       className={`font-bold text-xs uppercase px-2.5 py-0.5 border-none shadow-none ${
                         u.role === 'admin'
                           ? 'bg-blue-100 text-blue-800'
-                          : u.role === 'manager'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-purple-100 text-purple-800'
+                          : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
-                      {u.role === 'showroom_manager' ? 'Showroom Mgr' : u.role}
+                      {u.role}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground font-medium">
@@ -404,11 +402,6 @@ function SystemUsersContent() {
                           {u.role !== 'manager' && (
                             <DropdownMenuItem onClick={() => handleUpdateRole(u._id, 'manager')} className="cursor-pointer text-emerald-600 font-bold">
                               <Briefcase className="mr-2 h-4 w-4" /> Make Manager
-                            </DropdownMenuItem>
-                          )}
-                          {u.role !== 'showroom_manager' && (
-                            <DropdownMenuItem onClick={() => handleUpdateRole(u._id, 'showroom_manager')} className="cursor-pointer text-purple-600 font-bold">
-                              <Store className="mr-2 h-4 w-4" /> Make Showroom Mgr
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem onClick={() => handleUpdateRole(u._id, 'user')} className="cursor-pointer text-slate-600 font-bold">
@@ -533,7 +526,7 @@ function SystemUsersContent() {
               {/* Role Selection */}
               <div className="space-y-1.5">
                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Role</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setAssignRole('admin')}
@@ -555,17 +548,6 @@ function SystemUsersContent() {
                     }`}
                   >
                     Manager
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAssignRole('showroom_manager')}
-                    className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all ${
-                      assignRole === 'showroom_manager'
-                        ? 'bg-purple-50 border-purple-500 text-purple-700 shadow-xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    Showroom Mgr
                   </button>
                 </div>
               </div>

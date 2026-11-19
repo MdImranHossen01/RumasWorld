@@ -395,7 +395,7 @@ export default function BrandsPage() {
                   className="h-8 text-xs font-semibold"
                   onClick={() => handleEdit(brand)}
                 >
-                  <Edit className="h-3.5 w-3.5 mr-1" /> {t("showroom_managers.edit") || "Edit"}
+                  <Edit className="h-3.5 w-3.5 mr-1" /> Edit
                 </Button>
                 <Button
                   variant="outline"

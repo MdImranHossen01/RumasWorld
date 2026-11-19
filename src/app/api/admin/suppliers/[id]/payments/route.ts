@@ -59,7 +59,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         payment._id.toString(),
         txDate,
         undefined,
-        undefined,
         dbSession
       );
 
@@ -72,7 +71,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         `Supplier Payment: ${supplier.name || supplier.companyName || 'Supplier'}`,
         payment._id.toString(),
         txDate,
-        undefined,
         undefined,
         dbSession
       );

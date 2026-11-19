@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Invalid JSON request body' }, { status: 400 });
     }
 
-    const { name, slug, description, sku, categories, tags, images, attributes, variants, isFeatured, isNewArrival, isPublished, discountRate, wholesalePrice, wholesaleSalePrice, purchasePrice, showroomStocks, brand, showroomPrice, batches } = body;
+    const { name, slug, metaTitle, metaDescription, description, sku, categories, tags, images, attributes, variants, isFeatured, isNewArrival, isPublished, discountRate, purchasePrice, brand, batches } = body;
     let { price, salePrice, stock } = body;
 
     // Numeric validation and coercion
@@ -122,9 +122,10 @@ export async function POST(req: NextRequest) {
       size: v.size,
       sku: v.sku,
       image: v.image,
+      images: Array.isArray(v.images) ? v.images : (v.image ? [v.image] : []),
       price: Number.isFinite(parseFloat(v.price)) ? parseFloat(v.price) : 0,
+      purchasePrice: Number.isFinite(parseFloat(v.purchasePrice)) ? parseFloat(v.purchasePrice) : undefined,
       salePrice: Number.isFinite(parseFloat(v.salePrice)) ? parseFloat(v.salePrice) : undefined,
-      showroomPrice: Number.isFinite(parseFloat(v.showroomPrice)) ? parseFloat(v.showroomPrice) : undefined,
       stock: Number.isFinite(parseInt(v.stock, 10)) ? parseInt(v.stock, 10) : 0,
       discountRate: Number.isFinite(parseFloat(v.discountRate)) ? parseFloat(v.discountRate) : undefined,
     }));
@@ -151,14 +152,13 @@ export async function POST(req: NextRequest) {
         const newProduct = await Product.create({
           name,
           slug: uniqueSlug,
-          brand,
+          metaTitle: metaTitle ? String(metaTitle).slice(0, 70) : undefined,
+          metaDescription: metaDescription ? String(metaDescription).slice(0, 160) : undefined,
+          brand: brand || undefined,
           description,
           price: parsedPrice,
           salePrice: parsedSalePrice,
-          wholesalePrice: Number.isFinite(parseFloat(wholesalePrice)) ? parseFloat(wholesalePrice) : undefined,
-          wholesaleSalePrice: Number.isFinite(parseFloat(wholesaleSalePrice)) ? parseFloat(wholesaleSalePrice) : undefined,
           purchasePrice: Number.isFinite(parseFloat(purchasePrice)) ? parseFloat(purchasePrice) : undefined,
-          showroomPrice: Number.isFinite(parseFloat(showroomPrice)) ? parseFloat(showroomPrice) : undefined,
           discountRate: parsedDiscountRate,
           sku,
           stock: parsedStock,
@@ -168,7 +168,6 @@ export async function POST(req: NextRequest) {
           attributes: attributes || [],
           variants: coercedVariants,
           batches: coercedBatches,
-          showroomStocks: showroomStocks || [],
           isFeatured: isFeatured !== undefined ? isFeatured : false,
           isNewArrival: isNewArrival !== undefined ? isNewArrival : false,
           isPublished: isPublished !== undefined ? isPublished : true,

@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
         let invoiceNo = '';
         try {
-          const bill = await Bill.findById(orderId).populate('showroom').session(dbSession);
+          const bill = await Bill.findById(orderId).session(dbSession);
           if (!bill) {
             await dbSession.abortTransaction();
             dbSession.endSession();
@@ -91,18 +91,16 @@ export async function POST(req: NextRequest) {
 
           if (paymentReceived > 0 && bill.documentType === 'bill') {
             const { logLedgerTransaction } = await import('@/lib/ledgerHelper');
-            const showroom = bill.showroom as any;
             
             // Debit Cash by the payment amount
             await logLedgerTransaction(
               'CASH',
               'debit',
               paymentReceived,
-              `Online Payment Received for Bill ${bill.invoiceNo} ${showroom ? `(${showroom.name})` : ''}`,
+              `Online Payment Received for Bill ${bill.invoiceNo}`,
               bill.invoiceNo,
               new Date(),
               undefined,
-              showroom ? showroom._id.toString() : undefined,
               dbSession
             );
             
@@ -111,11 +109,10 @@ export async function POST(req: NextRequest) {
               'AR',
               'credit',
               paymentReceived,
-              `Online Payment credit for Bill ${bill.invoiceNo} ${showroom ? `(${showroom.name})` : ''}`,
+              `Online Payment credit for Bill ${bill.invoiceNo}`,
               bill.invoiceNo,
               new Date(),
               undefined,
-              showroom ? showroom._id.toString() : undefined,
               dbSession
             );
           }

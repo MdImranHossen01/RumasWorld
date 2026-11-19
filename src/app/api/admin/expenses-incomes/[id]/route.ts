@@ -13,7 +13,7 @@ export async function PUT(
     const { id } = await params;
     const session = await auth();
     const userRole = (session?.user as any)?.role;
-    if (!session || !['admin', 'super_admin', 'manager', 'showroom_manager'].includes(userRole)) {
+    if (!session || !['admin', 'super_admin', 'manager'].includes(userRole)) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
@@ -29,20 +29,12 @@ export async function PUT(
     }
 
     // Authorization checks
-    if (userRole === 'manager' || userRole === 'showroom_manager') {
-      const Showroom = (await import('@/models/Showroom')).default;
-      const userId = (session.user as any).id || (session.user as any)._id;
-      const managedShowroom = await Showroom.findOne({ manager: userId });
-      if (!managedShowroom || existingExpense.showroom?.toString() !== managedShowroom._id.toString()) {
-        return NextResponse.json({ message: 'Unauthorized access to this showroom expense' }, { status: 401 });
-      }
-      if (existingExpense.status !== 'Pending') {
-        return NextResponse.json({ message: 'Cannot edit an expense that has already been processed' }, { status: 400 });
-      }
+    if (userRole === 'manager' && existingExpense.status !== 'Pending') {
+      return NextResponse.json({ message: 'Cannot edit an expense that has already been processed' }, { status: 400 });
     }
 
     const body = await req.json();
-    const { title, amount, category, date, description, type, status, showroom, employee, accountCode } = body;
+    const { title, amount, category, date, description, type, status, accountCode } = body;
 
     // Sanitize update data (whitelist)
     const updateData: any = {};
@@ -52,12 +44,10 @@ export async function PUT(
     if (date !== undefined) updateData.date = date;
     if (description !== undefined) updateData.description = description;
     if (type !== undefined) updateData.type = type;
-    if (employee !== undefined) updateData.employee = employee;
     if (accountCode !== undefined) updateData.accountCode = accountCode;
 
     if (['admin', 'super_admin'].includes(userRole)) {
       if (status !== undefined) updateData.status = status;
-      if (showroom !== undefined) updateData.showroom = showroom;
     }
 
     const dbSession = await mongoose.startSession();
@@ -97,7 +87,9 @@ export async function PUT(
             expense.amount,
             ledgerDescription,
             expense._id.toString(),
-            expense.date ? new Date(expense.date) : new Date()
+            expense.date ? new Date(expense.date) : new Date(),
+            undefined,
+            dbSession
           );
         } else {
           await logLedgerTransaction(
@@ -106,14 +98,16 @@ export async function PUT(
             expense.amount,
             `Income Received: ${expense.title}`,
             expense._id.toString(),
-            expense.date ? new Date(expense.date) : new Date()
+            expense.date ? new Date(expense.date) : new Date(),
+            undefined,
+            dbSession
           );
         }
       }
       // Recalculate Cash/Bank balances
-      await recalculateLedgerBalance(existingExpense.accountCode || 'CASH');
+      await recalculateLedgerBalance(existingExpense.accountCode || 'CASH', dbSession);
       if (expense.accountCode && expense.accountCode !== existingExpense.accountCode) {
-        await recalculateLedgerBalance(expense.accountCode);
+        await recalculateLedgerBalance(expense.accountCode, dbSession);
       }
 
       await dbSession.commitTransaction();
@@ -139,7 +133,7 @@ export async function DELETE(
     const { id } = await params;
     const session = await auth();
     const userRole = (session?.user as any)?.role;
-    if (!session || !['admin', 'super_admin', 'manager', 'showroom_manager'].includes(userRole)) {
+    if (!session || !['admin', 'super_admin', 'manager'].includes(userRole)) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
@@ -154,16 +148,8 @@ export async function DELETE(
       return NextResponse.json({ message: 'Record not found' }, { status: 404 });
     }
 
-    if (userRole === 'manager' || userRole === 'showroom_manager') {
-      const Showroom = (await import('@/models/Showroom')).default;
-      const userId = (session.user as any).id || (session.user as any)._id;
-      const managedShowroom = await Showroom.findOne({ manager: userId });
-      if (!managedShowroom || existingExpense.showroom?.toString() !== managedShowroom._id.toString()) {
-        return NextResponse.json({ message: 'Unauthorized access to this showroom expense' }, { status: 401 });
-      }
-      if (existingExpense.status !== 'Pending') {
-        return NextResponse.json({ message: 'Cannot delete an expense that has already been processed' }, { status: 400 });
-      }
+    if (userRole === 'manager' && existingExpense.status !== 'Pending') {
+      return NextResponse.json({ message: 'Cannot delete an expense that has already been processed' }, { status: 400 });
     }
 
     const dbSession = await mongoose.startSession();
@@ -179,7 +165,7 @@ export async function DELETE(
       await LedgerTransaction.deleteMany({ reference: id }).session(dbSession);
 
       // Recalculate Cash/Bank balance
-      await recalculateLedgerBalance(existingExpense.accountCode || 'CASH');
+      await recalculateLedgerBalance(existingExpense.accountCode || 'CASH', dbSession);
 
       await dbSession.commitTransaction();
       dbSession.endSession();

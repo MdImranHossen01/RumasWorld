@@ -233,8 +233,8 @@ export default function PublicBillPage({ params }: { params: Promise<{ invoiceNo
               </div>
             </div>
 
-            {/* Customer & Showroom Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-4 border-t border-slate-200/60">
+            {/* Customer Info */}
+            <div className="grid grid-cols-1 gap-4 mt-6 pt-4 border-t border-slate-200/60">
               <div className="space-y-1">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Billed To</span>
                 <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
@@ -248,21 +248,6 @@ export default function PublicBillPage({ params }: { params: Promise<{ invoiceNo
                   </div>
                 )}
               </div>
-
-              {bill.showroom && (
-                <div className="space-y-1 sm:text-right">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Showroom</span>
-                  <div className="font-bold text-slate-900 text-sm flex items-center sm:justify-end gap-1.5">
-                    <Building2 className="h-4 w-4 text-slate-400" />
-                    {bill.showroom.name}
-                  </div>
-                  {bill.showroom.phone && (
-                    <div className="text-xs text-slate-600">
-                      Phone: {bill.showroom.phone}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </CardHeader>
 

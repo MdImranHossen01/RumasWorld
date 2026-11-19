@@ -222,7 +222,7 @@ export default function TransactionCategoriesPage() {
                     <FormItem>
                       <FormLabel>Category Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Salary, Utilities, etc." {...field} />
+                        <Input placeholder="e.g. Packaging, Utilities, etc." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

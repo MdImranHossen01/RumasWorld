@@ -107,7 +107,6 @@ export async function POST(req: NextRequest) {
           loan._id.toString(),
           date ? new Date(date) : new Date(),
           undefined,
-          undefined,
           dbSession
         );
 

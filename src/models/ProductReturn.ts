@@ -14,7 +14,6 @@ export interface IProductReturn extends Document {
   order?: mongoose.Types.ObjectId;
   customerName?: string;
   phone?: string;
-  showroom?: mongoose.Types.ObjectId;
   items: IReturnItem[];
   reason: string;
   refundAmount: number;
@@ -39,7 +38,6 @@ const ProductReturnSchema: Schema<IProductReturn> = new Schema(
     order: { type: Schema.Types.ObjectId, ref: 'Order', required: false },
     customerName: { type: String },
     phone: { type: String },
-    showroom: { type: Schema.Types.ObjectId, ref: 'Showroom' },
     items: { type: [ReturnItemSchema], required: true },
     reason: { type: String, required: true },
     refundAmount: { type: Number, required: true, default: 0 },

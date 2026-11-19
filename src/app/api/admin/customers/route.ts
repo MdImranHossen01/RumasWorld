@@ -9,17 +9,8 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     const userRole = (session?.user as any)?.role;
-    const userId = (session?.user as any)?.id;
-    if (!session || !(['admin', 'super_admin', 'manager', 'showroom_manager'].includes(userRole))) {
+    if (!session || !(['admin', 'super_admin', 'manager'].includes(userRole))) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-    let showroomId = undefined;
-    if (userRole === 'showroom_manager') {
-      const Showroom = (await import('@/models/Showroom')).default;
-      const showroom = await Showroom.findOne({ manager: userId }).lean();
-      if (showroom) {
-        showroomId = showroom._id;
-      }
     }
 
     const { searchParams } = new URL(req.url);
@@ -27,9 +18,9 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
-    // 1. Search in User database (role: user or wholesaler)
+    // 1. Search in User database (role: user)
     const userQuery: any = {
-      role: { $in: ['user', 'wholesaler'] }
+      role: 'user'
     };
     if (search) {
       userQuery.$or = [
@@ -51,18 +42,13 @@ export async function GET(req: NextRequest) {
         clientArea: defAddress.area || '',
         walletBalance: u.walletBalance || 0,
         role: u.role || 'user',
+        clientEmail: u.email || '',
       };
-      if (userRole !== 'showroom_manager') {
-        item.clientEmail = u.email || '';
-      }
       return item;
     });
 
     // 2. Search in Bill database for walk-in client invoices
     const billQuery: any = {};
-    if (userRole === 'showroom_manager' && showroomId) {
-      billQuery.showroom = showroomId;
-    }
     if (search) {
       billQuery.$or = [
         { clientName: { $regex: search, $options: 'i' } },
@@ -94,10 +80,8 @@ export async function GET(req: NextRequest) {
           clientThana: b.clientThana || '',
           clientArea: b.clientArea || '',
           walletBalance: 0,
+          clientEmail: b.clientEmail || '',
         };
-        if (userRole !== 'showroom_manager') {
-          item.clientEmail = b.clientEmail || '';
-        }
         merged.push(item);
       }
     });

@@ -2,27 +2,26 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
+import { useSession, signOut } from "next-auth/react"
 import {
   ChevronRight,
   LayoutDashboard,
   ShoppingBag,
-
   FileText,
   Users,
   Image as ImageIcon,
   Settings,
-  Store,
   Mail,
   CreditCard,
   RotateCcw,
   Truck,
   Landmark,
-  X,
-  Briefcase,
+  BarChart3,
+  LogOut,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/ui/logo"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 import {
   Collapsible,
@@ -32,8 +31,8 @@ import {
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
-
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -59,16 +58,6 @@ const data = {
           tKey: "sidebar.overview",
           url: "/admin/dashboard",
         },
-        {
-          title: "Report",
-          tKey: "sidebar.report",
-          url: "/admin/dashboard/report",
-        },
-        {
-          title: "Insight",
-          tKey: "sidebar.insight",
-          url: "/admin/dashboard/insight",
-        }
       ],
     },
     {
@@ -261,21 +250,51 @@ const data = {
       ],
     },
     {
-      title: "Showrooms",
-      tKey: "sidebar.showrooms",
+      title: "Reports & Analytics",
+      tKey: "sidebar.reports_analytics",
       url: "#",
-      icon: Store,
+      icon: BarChart3,
       items: [
         {
-          title: "Showrooms",
-          tKey: "sidebar.showrooms",
-          url: "/admin/showrooms",
+          title: "Daily Report",
+          tKey: "sidebar.daily_report",
+          url: "/admin/reports/daily",
         },
         {
-          title: "Add Showroom",
-          tKey: "sidebar.add_showroom",
-          url: "/admin/showrooms?action=add",
-        }
+          title: "Monthly Report",
+          tKey: "sidebar.monthly_report",
+          url: "/admin/reports/monthly",
+        },
+        {
+          title: "Order Profit Report",
+          tKey: "sidebar.order_profit_report",
+          url: "/admin/reports/order-profit",
+        },
+        {
+          title: "Item Profit Report",
+          tKey: "sidebar.item_profit_report",
+          url: "/admin/reports/item-profit",
+        },
+        {
+          title: "Top & Low Sales",
+          tKey: "sidebar.top_low_sales",
+          url: "/admin/reports/product-sales",
+        },
+        {
+          title: "Brand Wise Sales",
+          tKey: "sidebar.brand_wise_sales",
+          url: "/admin/reports/brand-sales",
+        },
+        {
+          title: "Purchase Report",
+          tKey: "sidebar.purchase_report",
+          url: "/admin/reports/purchase",
+        },
+        {
+          title: "Expense Report",
+          tKey: "sidebar.expense_report",
+          url: "/admin/reports/expense",
+        },
       ],
     },
     {
@@ -295,37 +314,9 @@ const data = {
           url: "/admin/system-users"
         },
         {
-          title: "Wholesalers",
-          tKey: "sidebar.wholesalers",
-          url: "/admin/wholesalers",
-        },
-        {
           title: "Areas",
           tKey: "sidebar.areas",
           url: "/admin/areas",
-        },
-      ],
-    },
-    {
-      title: "Employee Management",
-      tKey: "sidebar.employee_management",
-      url: "#",
-      icon: Briefcase,
-      items: [
-        {
-          title: "Employees",
-          tKey: "sidebar.employees",
-          url: "/admin/employees",
-        },
-        {
-          title: "Task Management",
-          tKey: "sidebar.task_management",
-          url: "/admin/task-management",
-        },
-        {
-          title: "Showroom Managers",
-          tKey: "sidebar.showroom_managers",
-          url: "/admin/showroom-managers",
         },
       ],
     },
@@ -419,28 +410,165 @@ const data = {
 }
 
 
-import { useSession } from "next-auth/react"
 import { useLanguage } from "@/contexts/LanguageContext"
 
-function NavMain({ items, pathname, role }: { items: typeof data.navMain; pathname: string; role?: string }) {
-  const { setOpenMobile, isMobile } = useSidebar()
+function isUrlActive(
+  itemUrl: string,
+  pathname: string,
+  searchParams: ReturnType<typeof useSearchParams> | null,
+  allSiblingUrls: string[] = []
+): boolean {
+  if (!itemUrl || itemUrl === "#") return false;
+
+  const [itemPath, itemQuery] = itemUrl.split("?");
+
+  if (itemQuery) {
+    if (pathname !== itemPath) return false;
+    if (!searchParams) return false;
+
+    const itemSearchParams = new URLSearchParams(itemQuery);
+    for (const [key, val] of itemSearchParams.entries()) {
+      if (searchParams.get(key) !== val) {
+        return false;
+      }
+    }
+    return true;
+  } else {
+    const pathMatches =
+      pathname === itemPath ||
+      (itemPath !== "/admin" &&
+        pathname.startsWith(itemPath + "/") &&
+        !allSiblingUrls.some(
+          (other) =>
+            other !== itemUrl &&
+            other.length > itemUrl.length &&
+            (pathname === other || pathname.startsWith(other + "/"))
+        ));
+
+    if (!pathMatches) return false;
+
+    if (searchParams && searchParams.toString().length > 0) {
+      const moreSpecificSiblingMatches = allSiblingUrls.some((siblingUrl) => {
+        if (!siblingUrl.includes("?")) return false;
+        const [sibPath, sibQuery] = siblingUrl.split("?");
+        if (sibPath !== pathname) return false;
+        const sibSearchParams = new URLSearchParams(sibQuery);
+        for (const [key, val] of sibSearchParams.entries()) {
+          if (searchParams.get(key) !== val) return false;
+        }
+        return true;
+      });
+
+      if (moreSpecificSiblingMatches) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+}
+
+function NavMainCollapsibleItem({
+  item,
+  pathname,
+  searchParams,
+  handleItemClick,
+}: {
+  item: any;
+  pathname: string;
+  searchParams: ReturnType<typeof useSearchParams> | null;
+  handleItemClick: (e: React.MouseEvent<HTMLAnchorElement>, url: string) => void;
+}) {
   const { t } = useLanguage()
+  const siblingUrls = item.items.map((subItem: any) => subItem.url);
+  const isParentActive =
+    item.items.some((subItem: any) =>
+      isUrlActive(subItem.url, pathname, searchParams, siblingUrls)
+    ) || isUrlActive(item.url, pathname, searchParams, []);
+
+  const [isOpen, setIsOpen] = React.useState(isParentActive);
+
+  React.useEffect(() => {
+    if (isParentActive) {
+      setIsOpen(true);
+    }
+  }, [isParentActive]);
+
+  const parentLabel = t(item.tKey as string) || item.title;
+
+  return (
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="group/collapsible"
+    >
+      <SidebarMenuItem>
+        <CollapsibleTrigger
+          render={
+            <SidebarMenuButton
+              tooltip={parentLabel}
+              isActive={isParentActive}
+              className={`h-10 rounded-xl px-3 transition-all duration-200 ${
+                isParentActive
+                  ? "!bg-primary !text-white font-bold shadow-md shadow-primary/30 data-active:!bg-primary data-active:!text-white data-[active=true]:!bg-primary data-[active=true]:!text-white"
+                  : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+              }`}
+            />
+          }
+        >
+          {item.icon && <item.icon className={`h-5 w-5 shrink-0 ${isParentActive ? "!text-white" : "text-slate-300"}`} />}
+          <span className={`text-sm font-medium tracking-tight ml-1.5 ${isParentActive ? "!text-white font-bold" : "text-slate-200"}`}>
+            {parentLabel}
+          </span>
+          <ChevronRight className={`ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-open/collapsible:rotate-90 group-[[data-state=open]]/collapsible:rotate-90 ${isParentActive ? "!text-white opacity-90" : "text-slate-400 opacity-70"}`} />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub className="ml-4 pl-2 border-l border-slate-800/80 my-1 space-y-1">
+            {item.items.map((subItem: any) => {
+              const isSubActive = isUrlActive(subItem.url, pathname, searchParams, siblingUrls);
+              const subLabel = subItem.tKey ? t(subItem.tKey as string) : subItem.title;
+
+              return (
+                <SidebarMenuSubItem key={subItem.title}>
+                  <SidebarMenuSubButton
+                    render={<Link href={subItem.url} onClick={(e) => handleItemClick(e, subItem.url)} />}
+                    isActive={isSubActive}
+                    className={`h-8 rounded-lg px-3 text-xs transition-all duration-150 ${
+                      isSubActive
+                        ? "!bg-primary !text-white font-bold shadow-sm data-active:!bg-primary data-active:!text-white"
+                        : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                    }`}
+                  >
+                    <span className={isSubActive ? "!text-white font-bold" : ""}>{subLabel}</span>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              );
+            })}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
+
+function NavMain({
+  items,
+  pathname,
+  searchParams,
+  role,
+}: {
+  items: typeof data.navMain;
+  pathname: string;
+  searchParams: ReturnType<typeof useSearchParams> | null;
+  role?: string;
+}) {
+  const { setOpenMobile, isMobile } = useSidebar()
 
   // Filter items based on role
   const filteredItems = items.map(item => ({
     ...item,
     items: item.items.filter((subItem: any) => {
       if (subItem.superOnly && role !== 'super_admin') return false;
-      if (role === 'showroom_manager') {
-        const allowedUrls = [
-          '/admin/dashboard',
-          '/admin/showrooms',
-          '/admin/products',
-          '/admin/orders',
-          '/admin/expenses-incomes'
-        ];
-        return allowedUrls.includes(subItem.url);
-      }
       return true;
     })
   })).filter(item => item.items.length > 0);
@@ -464,88 +592,85 @@ function NavMain({ items, pathname, role }: { items: typeof data.navMain; pathna
   }
 
   return (
-    <SidebarGroup>
-      <SidebarMenu>
-        {filteredItems.map((item) => {
-          const isParentActive =
-            item.items.some(
-              (subItem) =>
-                pathname === subItem.url ||
-                (subItem.url !== "#" &&
-                  subItem.url !== "/admin" &&
-                  pathname.startsWith(subItem.url + "/"))
-            ) || pathname === item.url
-
-          return (
-            <Collapsible
-              key={item.title}
-              defaultOpen={isParentActive}
-              className="group/collapsible"
-            >
-              <SidebarMenuItem>
-                <CollapsibleTrigger render={<SidebarMenuButton tooltip={t(item.tKey as string) || item.title} isActive={isParentActive} />}>
-                  {item.icon && <item.icon />}
-                  <span>{t(item.tKey as string) || item.title}</span>
-                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-open/collapsible:rotate-90 group-[[data-state=open]]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {item.items.map((subItem) => (
-                      <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton
-                          render={<Link href={subItem.url} onClick={(e) => handleItemClick(e, subItem.url)} />}
-                          isActive={
-                            pathname === subItem.url ||
-                            (subItem.url !== "#" &&
-                              subItem.url !== "/admin" &&
-                              pathname.startsWith(subItem.url + "/") &&
-                              !item.items.some(
-                                (otherItem) =>
-                                  otherItem !== subItem &&
-                                  otherItem.url.length > subItem.url.length &&
-                                  (pathname === otherItem.url || pathname.startsWith(otherItem.url + "/"))
-                              ))
-                          }
-                        >
-                          <span>{subItem.tKey ? t(subItem.tKey as string) : subItem.title}</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
-          )
-        })}
+    <SidebarGroup className="py-2">
+      <SidebarMenu className="gap-1">
+        {filteredItems.map((item) => (
+          <NavMainCollapsibleItem
+            key={item.title}
+            item={item}
+            pathname={pathname}
+            searchParams={searchParams}
+            handleItemClick={handleItemClick}
+          />
+        ))}
       </SidebarMenu>
     </SidebarGroup>
   )
+}
+
+function NavMainWithSearchParams({
+  items,
+  pathname,
+  role,
+}: {
+  items: typeof data.navMain;
+  pathname: string;
+  role?: string;
+}) {
+  const searchParams = useSearchParams();
+  return <NavMain items={items} pathname={pathname} searchParams={searchParams} role={role} />;
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { data: session } = useSession()
   const role = (session?.user as any)?.role
-
-  const { toggleSidebar } = useSidebar()
+  const user = session?.user
 
   return (
-    <Sidebar {...props}>
-      <SidebarHeader className="border-b h-14 lg:h-[60px] px-4 flex items-center relative">
-        <Logo textClassName="text-sm md:text-base font-black tracking-wide whitespace-nowrap" />
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          className="hidden md:flex absolute top-0 right-0 h-6 w-6 rounded-none rounded-bl-md"
-          aria-label="Close sidebar"
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
+    <Sidebar
+      {...props}
+      className="border-r border-slate-800/80 bg-[#0a152e] text-slate-100 [&_[data-slot=sidebar-inner]]:bg-[#0a152e] [&_[data-slot=sidebar-inner]]:text-slate-100"
+    >
+      <SidebarHeader className="border-b border-slate-800/80 h-14 px-3 flex flex-row items-center justify-center bg-[#0a152e]">
+        <Logo
+          href="/"
+          className="flex items-center justify-center gap-2.5 w-full mx-auto"
+          imageClassName="!size-8 shrink-0 rounded-md"
+          textClassName="!text-lg md:!text-xl font-black tracking-tight font-logo truncate max-w-[190px] text-white group-hover:text-white group-data-[collapsible=icon]:hidden"
+        />
       </SidebarHeader>
-      <SidebarContent className="gap-0">
-        <NavMain items={data.navMain} pathname={pathname} role={role} />
+
+      <SidebarContent className="gap-0 bg-[#0a152e] scrollbar-thin scrollbar-thumb-slate-800">
+        <React.Suspense fallback={<NavMain items={data.navMain} pathname={pathname} searchParams={null} role={role} />}>
+          <NavMainWithSearchParams items={data.navMain} pathname={pathname} role={role} />
+        </React.Suspense>
       </SidebarContent>
+
+      <SidebarFooter className="border-t border-slate-800/80 p-3 bg-[#081024]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Avatar className="h-8 w-8 border border-slate-700">
+              <AvatarImage src={user?.image || ""} alt={user?.name || "Admin"} />
+              <AvatarFallback className="bg-primary text-white font-bold text-xs">
+                {user?.name ? user.name.slice(0, 2).toUpperCase() : "AD"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-100 truncate">{user?.name || "Admin User"}</p>
+              <p className="text-[10px] text-slate-400 capitalize">{role ? role.replace('_', ' ') : "Administrator"}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800/60 rounded-lg transition-colors"
+            title="Log Out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </SidebarFooter>
+
       <SidebarRail />
     </Sidebar>
   )

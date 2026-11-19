@@ -56,7 +56,6 @@ export interface IOrder extends Document {
     transactionId?: string;
   };
   internalNote?: string;
-  showroom?: mongoose.Types.ObjectId;
   isCreditOrder?: boolean;
   expectedPaymentDate?: Date;
   paidAmount?: number;
@@ -129,7 +128,6 @@ const OrderSchema: Schema<IOrder> = new Schema(
       transactionId: { type: String },
     },
     internalNote: { type: String, default: '' },
-    showroom: { type: Schema.Types.ObjectId, ref: 'Showroom' },
     isCreditOrder: { type: Boolean, default: false },
     expectedPaymentDate: { type: Date },
     paidAmount: { type: Number, default: 0 },
@@ -139,7 +137,7 @@ const OrderSchema: Schema<IOrder> = new Schema(
 );
 
 // Indexes for fast dashboard and report aggregation
-OrderSchema.index({ status: 1, createdAt: -1, deletedAt: 1, showroom: 1 });
+OrderSchema.index({ status: 1, createdAt: -1, deletedAt: 1 });
 OrderSchema.index({ paymentMethod: 1, paymentStatus: 1, status: 1, deletedAt: 1 });
 OrderSchema.index({ user: 1, createdAt: -1, deletedAt: 1 });
 OrderSchema.index({ createdAt: -1, deletedAt: 1 });

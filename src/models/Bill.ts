@@ -41,7 +41,6 @@ export interface IBill extends Document {
   expectedReceivableDate?: Date;
   documentType?: 'offer' | 'chalan' | 'bill';
   convertedFrom?: mongoose.Types.ObjectId | string;
-  showroom?: mongoose.Types.ObjectId;
   transactionId?: string;
   manualPaymentDetails?: {
     methodName?: string;
@@ -105,12 +104,11 @@ const BillSchema: Schema<IBill> = new Schema(
     expectedReceivableDate: { type: Date },
     documentType: { type: String, enum: ['offer', 'chalan', 'bill'], default: 'bill' },
     convertedFrom: { type: Schema.Types.ObjectId, ref: 'Bill' },
-    showroom: { type: Schema.Types.ObjectId, ref: 'Showroom' },
   },
   { timestamps: true }
 );
 
-BillSchema.index({ documentType: 1, status: 1, showroom: 1 });
+BillSchema.index({ documentType: 1, status: 1 });
 BillSchema.index({ date: -1 });
 
 const Bill: Model<IBill> = mongoose.models.Bill || mongoose.model<IBill>('Bill', BillSchema);

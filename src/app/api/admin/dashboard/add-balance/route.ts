@@ -85,7 +85,6 @@ export async function POST(req: NextRequest) {
             loan._id.toString(),
             new Date(),
             undefined,
-            undefined,
             dbSession
           );
 
@@ -98,7 +97,6 @@ export async function POST(req: NextRequest) {
               `Interest Expense for Loan: ${loanId}`,
               loan._id.toString(),
               new Date(),
-              undefined,
               undefined,
               dbSession
             );
@@ -126,7 +124,6 @@ export async function POST(req: NextRequest) {
             targetAccountId,
             new Date(),
             undefined,
-            undefined,
             dbSession
           );
 
@@ -138,7 +135,6 @@ export async function POST(req: NextRequest) {
             `Fund Transfer from ${sourceAccount.name}`,
             sourceAccountId,
             new Date(),
-            undefined,
             undefined,
             dbSession
           );
@@ -153,7 +149,6 @@ export async function POST(req: NextRequest) {
             `Direct Balance Added: ${sourceType}`,
             undefined,
             new Date(),
-            undefined,
             undefined,
             dbSession
           );

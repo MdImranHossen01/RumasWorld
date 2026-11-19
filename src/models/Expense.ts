@@ -9,8 +9,6 @@ export interface IExpense extends Document {
   date: Date;
   description?: string;
   status: 'Approved' | 'Pending' | 'Rejected';
-  showroom?: mongoose.Types.ObjectId;
-  employee?: mongoose.Types.ObjectId;
   supplier?: mongoose.Types.ObjectId;
   customerPhone?: string;
   accountCode: string;
@@ -41,8 +39,6 @@ const ExpenseSchema: Schema<IExpense> = new Schema(
       default: 'Approved',
       required: true,
     },
-    showroom: { type: Schema.Types.ObjectId, ref: 'Showroom' },
-    employee: { type: Schema.Types.ObjectId, ref: 'User' },
     supplier: { type: Schema.Types.ObjectId, ref: 'Supplier' },
     customerPhone: { type: String },
     accountCode: {
@@ -55,7 +51,7 @@ const ExpenseSchema: Schema<IExpense> = new Schema(
 );
 
 // Indexes for fast dashboard and report aggregation
-ExpenseSchema.index({ date: -1, status: 1, type: 1, showroom: 1 });
+ExpenseSchema.index({ date: -1, status: 1, type: 1 });
 ExpenseSchema.index({ type: 1, status: 1, date: -1 });
 
 if (mongoose.models.Expense) {

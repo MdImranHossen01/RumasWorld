@@ -61,7 +61,7 @@ export const getCachedProducts = (query = {}, limit = 10, sort: any = { createdA
       await connectToDatabase();
       if (!Brand) {}
       const products = await Product.find({ isPublished: { $ne: false }, ...query })
-        .select('-embedding -description -batches -variants.batches -attributes -showroomStocks')
+        .select('-embedding -description -batches -variants.batches -attributes')
         .populate('categories', 'name slug parentCategory isActive')
         .populate('brand', 'name slug image isActive')
         .sort(sort as any)
@@ -124,7 +124,7 @@ export const getTrendingProducts = (limit = 10) => {
         _id: { $in: topSellingIds },
         isPublished: { $ne: false },
       })
-        .select('-embedding -description -batches -variants.batches -attributes -showroomStocks')
+        .select('-embedding -description -batches -variants.batches -attributes')
         .populate('categories', 'name slug parentCategory isActive')
         .lean();
 
@@ -143,7 +143,7 @@ export const getTrendingProducts = (limit = 10) => {
           isPublished: { $ne: false },
           ratings: { $gt: 0 }
         })
-          .select('-embedding -description -batches -variants.batches -attributes -showroomStocks')
+          .select('-embedding -description -batches -variants.batches -attributes')
           .populate('categories', 'name slug parentCategory isActive')
           .sort({ ratings: -1, numReviews: -1 } as any)
           .limit(remaining)
@@ -159,7 +159,7 @@ export const getTrendingProducts = (limit = 10) => {
           isPublished: { $ne: false },
           views: { $gt: 0 }
         })
-          .select('-embedding -description -batches -variants.batches -attributes -showroomStocks')
+          .select('-embedding -description -batches -variants.batches -attributes')
           .populate('categories', 'name slug parentCategory isActive')
           .sort({ views: -1 } as any)
           .limit(remaining)
@@ -174,7 +174,7 @@ export const getTrendingProducts = (limit = 10) => {
           _id: { $nin: trendingProducts.map(p => p._id) },
           isPublished: { $ne: false },
         })
-          .select('-embedding -description -batches -variants.batches -attributes -showroomStocks')
+          .select('-embedding -description -batches -variants.batches -attributes')
           .populate('categories', 'name slug parentCategory isActive')
           .sort({ createdAt: -1 } as any)
           .limit(remaining)

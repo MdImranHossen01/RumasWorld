@@ -3,14 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectToDatabase from '@/lib/db';
 import Expense from '@/models/Expense';
-import Showroom from '@/models/Showroom';
 import User from '@/models/User';
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     const userRole = (session?.user as any)?.role;
-    if (!session || !['admin', 'super_admin', 'manager', 'showroom_manager'].includes(userRole)) {
+    if (!session || !['admin', 'super_admin', 'manager'].includes(userRole)) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
@@ -49,17 +48,7 @@ export async function GET(req: NextRequest) {
       query.date = dateQuery;
     }
 
-    if (userRole === 'manager' || userRole === 'showroom_manager') {
-      const userId = (session.user as any).id || (session.user as any)._id;
-      const managedShowroom = await Showroom.findOne({ manager: userId });
-      if (managedShowroom) {
-        query.showroom = managedShowroom._id;
-      } else {
-        return NextResponse.json([]);
-      }
-    }
-
-    const expenses = await Expense.find(query).populate('showroom', 'name').populate('employee', 'name email').sort({ date: -1 });
+    const expenses = await Expense.find(query).sort({ date: -1 });
     return NextResponse.json(expenses);
   } catch (error: any) {
     console.error('Error fetching transactions:', error);
@@ -71,12 +60,12 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     const userRole = (session?.user as any)?.role;
-    if (!session || !['admin', 'super_admin', 'manager', 'showroom_manager'].includes(userRole)) {
+    if (!session || !['admin', 'super_admin', 'manager'].includes(userRole)) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
-    const { title, amount, category, date, description, type, employee, accountCode, supplier, customerPhone } = body;
+    const { title, amount, category, date, description, type, accountCode, supplier, customerPhone } = body;
 
     // Validate required fields (basic)
     if (!title || amount === undefined || !category || !type) {
@@ -84,17 +73,10 @@ export async function POST(req: NextRequest) {
     }
 
     let expenseStatus = 'Approved';
-    let showroomId = body.showroom;
 
     await connectToDatabase();
 
-    if (userRole === 'manager' || userRole === 'showroom_manager') {
-      const Showroom = (await import('@/models/Showroom')).default;
-      const userId = (session.user as any).id || (session.user as any)._id;
-      const managedShowroom = await Showroom.findOne({ manager: userId });
-      if (managedShowroom) {
-        showroomId = managedShowroom._id;
-      }
+    if (userRole === 'manager') {
       expenseStatus = 'Pending';
     } else if (body.status) {
       expenseStatus = body.status;
@@ -109,15 +91,10 @@ export async function POST(req: NextRequest) {
       date: date ? new Date(date) : new Date(),
       description,
       status: expenseStatus,
-      employee,
       supplier: supplier || undefined,
       customerPhone: customerPhone || undefined,
       accountCode: accountCode || 'CASH'
     };
-
-    if (showroomId) {
-      safePayload.showroom = showroomId;
-    }
 
     const expense = await Expense.create(safePayload);
 

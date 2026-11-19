@@ -217,8 +217,7 @@ function ExpensesIncomesContent() {
   const filteredTransactions = transactions.filter((tx) => {
     const term = searchTerm.toLowerCase();
     const title = tx.title?.toLowerCase() || '';
-    const showroomName = tx.showroom?.name?.toLowerCase() || '';
-    const matchesSearch = title.includes(term) || showroomName.includes(term);
+    const matchesSearch = title.includes(term);
 
     let matchesDate = true;
     if (filterByDate) {
@@ -253,8 +252,7 @@ function ExpensesIncomesContent() {
   const overviewTransactions = transactions.filter((tx) => {
     const term = searchTerm.toLowerCase();
     const title = tx.title?.toLowerCase() || '';
-    const showroomName = tx.showroom?.name?.toLowerCase() || '';
-    const matchesSearch = title.includes(term) || showroomName.includes(term);
+    const matchesSearch = title.includes(term);
 
     let matchesDate = true;
     if (filterByDate) {
@@ -526,7 +524,6 @@ function ExpensesIncomesContent() {
                     <TableRow>
                       <TableHead>{t("expenses.date")}</TableHead>
                       <TableHead>{t("expenses.title_col")}</TableHead>
-                      <TableHead>{t("expenses.showroom_origin")}</TableHead>
                       <TableHead>{t("expenses.type")}</TableHead>
                       <TableHead>{t("expenses.status")}</TableHead>
                       <TableHead className="text-right">{t("expenses.amount")}</TableHead>
@@ -545,17 +542,6 @@ function ExpensesIncomesContent() {
                               <div className="text-xs text-muted-foreground mt-0.5 max-w-[300px] break-words">
                                 {tx.description}
                               </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {tx.showroom?.name ? (
-                              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-                                {tx.showroom.name}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground italic">
-                                {t("expenses.head_office")}
-                              </span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -701,15 +687,6 @@ function ExpensesIncomesContent() {
 
                       {/* Middle Row: Badges */}
                       <div className="flex flex-wrap gap-2 items-center">
-                        {tx.showroom?.name ? (
-                          <span className="text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded">
-                            {tx.showroom.name}
-                          </span>
-                        ) : (
-                          <span className="text-xs italic text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                            {t("expenses.head_office")}
-                          </span>
-                        )}
                         {tx.status && (
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${tx.status === 'Approved'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400'

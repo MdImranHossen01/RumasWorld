@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const sessionUser = await auth();
     const userRole = (sessionUser?.user as any)?.role;
 
-    if (!sessionUser?.user || !(['admin', 'super_admin', 'manager', 'showroom_manager'].includes(userRole))) {
+    if (!sessionUser?.user || !(['admin', 'super_admin', 'manager'].includes(userRole))) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
@@ -45,16 +45,6 @@ export async function POST(req: NextRequest) {
       throw new Error('Failed to start database session');
     }
     session.startTransaction();
-
-    // Fetch showroom if user is showroom_manager
-    let showroomId = undefined;
-    if (userRole === 'showroom_manager') {
-      const Showroom = (await import('@/models/Showroom')).default;
-      const showroom = await Showroom.findOne({ manager: sessionUser.user.id }).session(session);
-      if (showroom) {
-        showroomId = showroom._id;
-      }
-    }
 
     // 1. Check or Create User
     let user = await User.findOne({
@@ -221,8 +211,7 @@ export async function POST(req: NextRequest) {
           paymentStatus: paymentStatus || 'Pending',
           status: status || 'Order Placed',
           shortId: crypto.randomBytes(4).toString('hex').toUpperCase(),
-          internalNote: internalNote || undefined,
-          showroom: showroomId || undefined
+          internalNote: internalNote || undefined
         }
       ],
       { session }
@@ -259,8 +248,7 @@ export async function POST(req: NextRequest) {
             `Credit Order Confirmed #${shortId}`,
             arReference,
             new Date(),
-            undefined,
-            newOrder.showroom ? newOrder.showroom.toString() : undefined
+            undefined
           );
         }
       } catch (arErr) {

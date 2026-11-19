@@ -11,24 +11,13 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     const userRole = (session?.user as any)?.role;
-    const userId = (session?.user as any)?.id;
 
-    if (!session || !session.user || !(['admin', 'super_admin', 'showroom_manager'].includes(userRole))) {
+    if (!session || !session.user || !(['admin', 'super_admin', 'manager'].includes(userRole))) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
     await connectToDatabase();
 
-    let query: any = {};
-    if (userRole === 'showroom_manager') {
-      const Showroom = (await import('@/models/Showroom')).default;
-      const showroom = await Showroom.findOne({ manager: userId }).lean();
-      if (!showroom) {
-        return NextResponse.json({ message: 'No showroom assigned' }, { status: 404 });
-      }
-      query.showroom = showroom._id;
-    }
-
-    const returns = await ProductReturn.find(query)
+    const returns = await ProductReturn.find({})
       .populate('bill', 'invoiceNo')
       .populate('order', 'shortId')
       .populate('processedBy', 'name')
@@ -47,7 +36,7 @@ export async function POST(req: NextRequest) {
     const userRole = (session?.user as any)?.role;
     const userId = (session?.user as any)?.id;
 
-    if (!session || !session.user || !(['admin', 'super_admin', 'showroom_manager'].includes(userRole))) {
+    if (!session || !session.user || !(['admin', 'super_admin', 'manager'].includes(userRole))) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
@@ -68,7 +57,6 @@ export async function POST(req: NextRequest) {
       let order = null;
       let customerName = '';
       let phone = '';
-      let showroom = null;
       let sourceNameForLedger = '';
 
       if (billId) {
@@ -78,7 +66,6 @@ export async function POST(req: NextRequest) {
         }
         customerName = bill.clientName;
         phone = bill.clientPhone;
-        showroom = bill.showroom;
         sourceNameForLedger = `Bill: ${bill.invoiceNo}`;
       } else {
         order = await Order.findById(orderId).session(dbSession);
@@ -90,19 +77,7 @@ export async function POST(req: NextRequest) {
         }
         customerName = order.shippingAddress?.fullName;
         phone = order.shippingAddress?.phone;
-        showroom = order.showroom;
         sourceNameForLedger = `Order: ${order.shortId}`;
-      }
-
-      if (userRole === 'showroom_manager') {
-        const Showroom = (await import('@/models/Showroom')).default;
-        const managerShowroom = await Showroom.findOne({ manager: userId }).lean();
-        if (!managerShowroom) {
-          throw new Error('No showroom assigned to this manager');
-        }
-        if (!showroom || showroom.toString() !== managerShowroom._id.toString()) {
-          throw new Error('Unauthorized: Cannot process returns for other showrooms');
-        }
       }
 
       const returnId = `RET-${Date.now()}`;
@@ -156,7 +131,6 @@ export async function POST(req: NextRequest) {
         order: order ? order._id : undefined,
         customerName,
         phone,
-        showroom,
         items: items.map((i: any) => ({
           product: i.productId,
           variantId: i.variantId,
@@ -185,7 +159,6 @@ export async function POST(req: NextRequest) {
             `Refund for Return ${returnId} (${sourceNameForLedger})`,
             returnId,
             new Date(),
-            undefined,
             undefined,
             dbSession
           );

@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ invo
 
     await connectToDatabase();
 
-    const bill = await Bill.findOne({ invoiceNo }).populate('showroom', 'name address phone');
+    const bill = await Bill.findOne({ invoiceNo });
     if (!bill) {
       return NextResponse.json({ message: 'Invoice not found' }, { status: 404 });
     }

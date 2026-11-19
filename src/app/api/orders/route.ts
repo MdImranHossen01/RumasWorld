@@ -306,16 +306,12 @@ export async function POST(req: NextRequest) {
       }
 
       // 2d. Price Verification and Validated Items List (using ORIGINAL items for order structure)
-      const isWholesalerUser = (sessionUser?.user as any)?.role === 'wholesaler';
-
       for (const item of items) {
         const product = await Product.findOne({ _id: item.product }).session(session);
         if (!product) throw new Error('Product not found during price verification');
 
         const hasVariant = !!(item.color || item.size);
-        let itemPrice = isWholesalerUser
-          ? (product.wholesaleSalePrice ?? product.wholesalePrice ?? product.salePrice ?? product.price)
-          : (product.salePrice ?? product.price);
+        let itemPrice = product.salePrice ?? product.price;
         let itemPurchasePrice = product.purchasePrice ?? 0;
 
         if (hasVariant) {
@@ -324,9 +320,7 @@ export async function POST(req: NextRequest) {
             String(v.size || '').trim() === String(item.size || '').trim()
           );
           if (variant) {
-            itemPrice = isWholesalerUser
-              ? ((variant.wholesaleSalePrice ?? variant.wholesalePrice) ?? (variant.salePrice ?? variant.price) ?? (product.wholesaleSalePrice ?? product.wholesalePrice ?? product.salePrice ?? product.price))
-              : ((variant.salePrice ?? variant.price) ?? (product.salePrice ?? product.price));
+            itemPrice = (variant.salePrice ?? variant.price) ?? (product.salePrice ?? product.price);
             itemPurchasePrice = variant.purchasePrice ?? product.purchasePrice ?? 0;
           }
         }

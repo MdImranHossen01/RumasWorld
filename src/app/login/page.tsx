@@ -60,12 +60,6 @@ export default function LoginPage() {
       const role = (session.user as any)?.role;
       if (role === 'admin' || role === 'super_admin' || role === 'manager') {
         router.replace('/admin/dashboard');
-      } else if (role === 'showroom_manager') {
-        router.replace('/showroom/dashboard');
-      } else if (role === 'employee') {
-        router.replace('/employee/dashboard');
-      } else if (role === 'wholesaler') {
-        router.replace('/wholesaler/dashboard');
       } else {
         router.replace('/dashboard');
       }

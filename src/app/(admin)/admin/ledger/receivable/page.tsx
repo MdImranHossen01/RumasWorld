@@ -39,11 +39,9 @@ export default function ReceivablePage() {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'wholesale' | 'general'>('wholesale');
   const [searchQuery, setSearchQuery] = useState('');
   
   // Data lists
-  const [wholesaleList, setWholesaleList] = useState<any[]>([]);
   const [generalList, setGeneralList] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   
@@ -63,7 +61,6 @@ export default function ReceivablePage() {
       const res = await fetch('/api/admin/ledger/receivable');
       if (!res.ok) throw new Error('Failed to fetch receivables');
       const data = await res.json();
-      setWholesaleList(data.wholesaleCustomers || []);
       setGeneralList(data.generalCustomers || []);
 
       const accRes = await fetch('/api/accounts');
@@ -152,13 +149,10 @@ export default function ReceivablePage() {
   };
 
   // Summaries
-  const totalWholesaleDue = wholesaleList.reduce((sum, item) => sum + (item.totalDue || 0), 0);
-  const totalWholesaleMatured = wholesaleList.reduce((sum, item) => sum + (item.maturedDue || 0), 0);
   const totalGeneralDue = generalList.reduce((sum, item) => sum + (item.totalDue || 0), 0);
   const totalGeneralMatured = generalList.reduce((sum, item) => sum + (item.maturedDue || 0), 0);
 
-  const activeList = activeTab === 'wholesale' ? wholesaleList : generalList;
-  const filteredList = activeList.filter(item => 
+  const filteredList = generalList.filter(item => 
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.phone.includes(searchQuery)
   );
@@ -171,43 +165,20 @@ export default function ReceivablePage() {
           {t("sidebar.account_receivable") || "Account Receivable"}
         </h1>
         <p className="text-xs md:text-sm text-muted-foreground mt-1">
-          Track and collect matured dues from wholesalers and general customer orders/bills.
+          Track and collect matured dues from customer orders and bills.
         </p>
       </div>
 
       <div className="px-0 md:px-0 !mt-[1px] md:!mt-6 space-y-4">
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-2.5 px-2 md:px-0">
-          {/* Wholesale Card */}
-          <Card className="bg-emerald-50/20 border-emerald-500/10 dark:bg-emerald-950/10 border shadow-sm relative overflow-hidden">
-            <CardContent className="p-3 md:p-5 flex flex-col justify-between h-full gap-1.5 md:gap-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-[10px] md:text-sm font-bold text-emerald-800 dark:text-emerald-400 truncate max-w-[90px] sm:max-w-none">
-                    Wholesale Dues
-                  </CardTitle>
-                  <div className="text-sm md:text-3xl font-black text-emerald-950 dark:text-emerald-200 mt-1 md:mt-2">
-                    ৳{Math.round(totalWholesaleDue).toLocaleString()}
-                  </div>
-                </div>
-                <div className="p-1 md:p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50 shrink-0">
-                  <Landmark className="h-4.5 w-4.5 md:h-5 md:w-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-              </div>
-              <div className="flex gap-1 items-center text-[8px] md:text-xs font-semibold text-rose-600 mt-1.5 md:mt-2 bg-rose-50 dark:bg-rose-950/20 w-fit px-2 py-0.5 md:px-2.5 md:py-1 rounded-full border border-rose-100 dark:border-rose-950/30">
-                <span className="h-1 w-1 md:h-1.5 md:w-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                <span className="truncate max-w-[85px] sm:max-w-none">Matured: ৳{Math.round(totalWholesaleMatured).toLocaleString()}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* General Card */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 px-2 md:px-0">
+          {/* Total Receivable Card */}
           <Card className="bg-indigo-50/20 border-indigo-500/10 dark:bg-indigo-950/10 border shadow-sm relative overflow-hidden">
             <CardContent className="p-3 md:p-5 flex flex-col justify-between h-full gap-1.5 md:gap-2">
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-[10px] md:text-sm font-bold text-indigo-800 dark:text-indigo-400 truncate max-w-[90px] sm:max-w-none">
-                    General Dues
+                  <CardTitle className="text-[10px] md:text-sm font-bold text-indigo-800 dark:text-indigo-400">
+                    Customer Dues
                   </CardTitle>
                   <div className="text-sm md:text-3xl font-black text-indigo-950 dark:text-indigo-200 mt-1 md:mt-2">
                     ৳{Math.round(totalGeneralDue).toLocaleString()}
@@ -219,37 +190,16 @@ export default function ReceivablePage() {
               </div>
               <div className="flex gap-1 items-center text-[8px] md:text-xs font-semibold text-rose-600 mt-1.5 md:mt-2 bg-rose-50 dark:bg-rose-950/20 w-fit px-2 py-0.5 md:px-2.5 md:py-1 rounded-full border border-rose-100 dark:border-rose-950/30">
                 <span className="h-1 w-1 md:h-1.5 md:w-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                <span className="truncate max-w-[85px] sm:max-w-none">Matured: ৳{Math.round(totalGeneralMatured).toLocaleString()}</span>
+                <span>Matured: ৳{Math.round(totalGeneralMatured).toLocaleString()}</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs & Filters */}
+        {/* Search Filter */}
         <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center bg-zinc-50 dark:bg-zinc-900/50 p-2.5 rounded-xl border border-muted/50 mx-2 md:mx-0">
-          <div className="flex gap-1 bg-muted p-1 rounded-lg w-full md:w-auto">
-            <button
-              type="button"
-              className={`flex-1 md:flex-initial px-4 py-1.5 text-xs font-bold rounded-md transition-all ${
-                activeTab === 'wholesale'
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => { setActiveTab('wholesale'); setSearchQuery(''); }}
-            >
-              Wholesale ({wholesaleList.length})
-            </button>
-            <button
-              type="button"
-              className={`flex-1 md:flex-initial px-4 py-1.5 text-xs font-bold rounded-md transition-all ${
-                activeTab === 'general'
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              onClick={() => { setActiveTab('general'); setSearchQuery(''); }}
-            >
-              General POS Customers ({generalList.length})
-            </button>
+          <div className="text-xs font-bold text-foreground px-2">
+            Customer Accounts ({generalList.length})
           </div>
 
           <div className="relative w-full md:w-80 shrink-0">
@@ -281,9 +231,7 @@ export default function ReceivablePage() {
                       <TableRow>
                         <TableHead className="font-bold text-foreground text-xs md:text-sm py-4">Customer Name</TableHead>
                         <TableHead className="font-bold text-foreground text-xs md:text-sm py-4">Contact Info</TableHead>
-                        <TableHead className="font-bold text-foreground text-xs md:text-sm py-4">
-                          {activeTab === 'wholesale' ? 'Orders Count' : 'Bills Count'}
-                        </TableHead>
+                        <TableHead className="font-bold text-foreground text-xs md:text-sm py-4">Bills Count</TableHead>
                         <TableHead className="font-bold text-foreground text-xs md:text-sm py-4 text-right">Total Due</TableHead>
                         <TableHead className="font-bold text-rose-600 text-xs md:text-sm py-4 text-right">Matured Due</TableHead>
                         <TableHead className="font-bold text-foreground text-xs md:text-sm py-4 text-right">Actions</TableHead>
@@ -303,7 +251,7 @@ export default function ReceivablePage() {
                           </TableCell>
                           <TableCell className="py-4 text-xs md:text-sm font-medium">
                             <Badge variant="secondary">
-                              {activeTab === 'wholesale' ? customer.ordersCount : customer.billsCount} Records
+                              {customer.billsCount} Records
                             </Badge>
                           </TableCell>
                           <TableCell className="py-4 text-xs md:text-sm text-right font-extrabold text-foreground">
@@ -341,7 +289,7 @@ export default function ReceivablePage() {
                           </div>
                         </div>
                         <Badge variant="secondary" className="text-[10px] font-bold">
-                          {activeTab === 'wholesale' ? customer.ordersCount : customer.billsCount} Recs
+                          {customer.billsCount} Recs
                         </Badge>
                       </div>
                       

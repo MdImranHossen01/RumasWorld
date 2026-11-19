@@ -44,7 +44,7 @@ export default async function ProductDetailsV4({ product }: { product: any }) {
       <div className="mb-20 flex items-center justify-center gap-4 text-[10px] font-bold uppercase tracking-[0.4em] text-muted-foreground/40">
         <Link href="/" className="hover:text-primary transition-colors">Atelier</Link>
         <span className="h-1 w-1 rounded-full bg-neutral-200" />
-        <Link href="/shop" className="hover:text-primary transition-colors">Showroom</Link>
+        <Link href="/shop" className="hover:text-primary transition-colors">Shop</Link>
         <span className="h-1 w-1 rounded-full bg-neutral-200" />
         <span className="text-foreground font-black truncate">{product.name}</span>
       </div>

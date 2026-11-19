@@ -63,9 +63,6 @@ function isAuthOrProtectedPath(pathname: string): boolean {
     pathname.startsWith('/register') ||
     pathname.startsWith('/admin') ||
     pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/showroom') ||
-    pathname.startsWith('/employee') ||
-    pathname.startsWith('/wholesaler') ||
     pathname.startsWith('/profile') ||
     pathname.includes('/login')
   );
@@ -153,7 +150,6 @@ if (typeof window !== 'undefined' && !(window as any).__rwSessionFetchPatched) {
       method !== 'GET' &&
       (urlStr.includes('/api/user') ||
         urlStr.includes('/api/admin/users') ||
-        urlStr.includes('/api/wholesaler') ||
         urlStr.includes('/api/orders'))
     ) {
       clearCachedSession();

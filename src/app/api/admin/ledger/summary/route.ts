@@ -88,8 +88,6 @@ export async function GET(req: NextRequest) {
         categoryName = 'Customer Orders & Sales';
       } else if (ref.startsWith('SUPPLIER-') || ref.startsWith('SUPPLIER_BILL-')) {
         categoryName = 'Supplier Payments';
-      } else if (ref.startsWith('WHOLESALER-')) {
-        categoryName = 'Wholesaler Collections';
       } else if (ref.startsWith('LOAN-') || ref.startsWith('BUSINESS-LOAN-')) {
         categoryName = 'Loan Transaction';
       } else if (desc.startsWith('Transfer to') || desc.startsWith('Transfer from')) {

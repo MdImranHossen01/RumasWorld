@@ -31,23 +31,14 @@ export async function GET(
       return NextResponse.json({ message: 'Order not found' }, { status: 404 });
     }
 
-    // Authorization: Must be an admin OR the owner of the order OR it is a guest order OR a showroom manager for this showroom
+    // Authorization: Must be an admin OR the owner of the order OR it is a guest order
     const userRole = (session?.user as any)?.role;
     const userId = (session?.user as any)?.id;
     const isAdmin = session?.user && ['admin', 'super_admin', 'manager'].includes(userRole);
     const isOwner = session?.user && order.user?._id?.toString() === userId;
     const isGuestOrder = !order.user;
 
-    let isShowroomManagerForOrder = false;
-    if (userRole === 'showroom_manager') {
-      const Showroom = (await import('@/models/Showroom')).default;
-      const showroom = await Showroom.findOne({ manager: userId }).lean();
-      if (showroom && order.showroom?.toString() === showroom._id.toString()) {
-        isShowroomManagerForOrder = true;
-      }
-    }
-
-    if (!isAdmin && !isOwner && !isGuestOrder && !isShowroomManagerForOrder) {
+    if (!isAdmin && !isOwner && !isGuestOrder) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -61,7 +52,7 @@ export async function GET(
   }
 }
 
-// PATCH update order status (Admin & Showroom Manager)
+// PATCH update order status (Admin)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -70,9 +61,8 @@ export async function PATCH(
     const { slug } = await params;
     const session = await auth();
     const userRole = (session?.user as any)?.role;
-    const userId = (session?.user as any)?.id;
 
-    if (!session || !session.user || !(['admin', 'super_admin', 'manager', 'showroom_manager'].includes(userRole))) {
+    if (!session || !session.user || !(['admin', 'super_admin', 'manager'].includes(userRole))) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -111,24 +101,6 @@ export async function PATCH(
       if (!order) {
         await dbSession.abortTransaction();
         return NextResponse.json({ message: 'Order not found' }, { status: 404 });
-      }
-
-      if (userRole === 'showroom_manager') {
-        const Showroom = (await import('@/models/Showroom')).default;
-        const showroom = await Showroom.findOne({ manager: userId }).session(dbSession).lean();
-        if (!showroom || order.showroom?.toString() !== showroom._id.toString()) {
-          await dbSession.abortTransaction();
-          return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
-        }
-        // Restrict showroom_manager: allow only status and internalNote
-        paymentStatus = undefined;
-        shippingAddress = undefined;
-        paymentMethod = undefined;
-        transactionId = undefined;
-        deliveryCharge = undefined;
-        couponDiscountAmount = undefined;
-        walletAmountUsed = undefined;
-        items = undefined;
       }
 
       const allowedStatuses = ['Order Placed', 'Confirmed', 'Paid', 'Ready for Delivery', 'Released for Delivery', 'Cancelled', 'Delivered'];
@@ -297,8 +269,7 @@ export async function PATCH(
               `Credit Order Confirmed #${shortId}`,
               arReference,
               new Date(),
-              undefined,
-              updatedOrder.showroom ? updatedOrder.showroom.toString() : undefined
+              undefined
             );
             console.log(`[Ledger] Logged AR debit for Order #${shortId} successfully.`);
           }

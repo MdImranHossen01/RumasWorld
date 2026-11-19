@@ -22,11 +22,11 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
-    // System users include admin, manager, showroom_manager
+    // System users include admin, manager
     // Super Admin (imranshuvo101@gmail.com and super_admin) must be hidden
-    const allowedRoles = roleFilter && ['admin', 'manager', 'showroom_manager'].includes(roleFilter)
+    const allowedRoles = roleFilter && ['admin', 'manager'].includes(roleFilter)
       ? [roleFilter]
-      : ['admin', 'manager', 'showroom_manager'];
+      : ['admin', 'manager'];
 
     const matchQuery: any = {
       role: { $in: allowedRoles, $ne: 'super_admin' },
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     const normalizedPhone = phone ? normalizePhoneNumber(phone) : undefined;
 
     // Never allow assigning super_admin
-    const targetRole = role === 'manager' || role === 'showroom_manager' ? role : 'admin';
+    const targetRole = role === 'manager' ? role : 'admin';
 
     await connectToDatabase();
 
