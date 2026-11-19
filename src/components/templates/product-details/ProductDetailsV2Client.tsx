@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { ttEvent } from '@/lib/tiktok';
+import { fbEvent } from '@/lib/fpixel';
 import { ShoppingCart, Heart, Minus, Plus, Star, MoreVertical, Edit, Trash2, Settings, PlusCircle, ShieldCheck, Truck, RefreshCw, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -131,6 +133,19 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
     setQuantity(activeQuantity);
   }
 
+  useEffect(() => {
+    if (!product?._id) return;
+    const viewPayload = {
+      content_name: product.name,
+      content_ids: [product._id],
+      content_type: 'product',
+      value: product.salePrice ?? product.price ?? 0,
+      currency: 'BDT',
+    };
+    fbEvent('ViewContent', viewPayload);
+    ttEvent('ViewContent', viewPayload);
+  }, [product._id, product.name, product.salePrice, product.price]);
+
   const handleAddToCart = () => {
     if (uniqueColors.length > 0 && !currentColor) return toast.error(t('store.product.select_color') as string || 'Select color');
     if (uniqueSizes.length > 0 && !currentSize) return toast.error(t('store.product.select_size') as string || 'Select size');
@@ -152,6 +167,17 @@ export default function ProductDetailsV2Client({ product }: ProductDetailsV2Clie
       color: currentColor || undefined,
       size: currentSize || undefined
     }));
+    const addToCartPayload = {
+      content_name: product.name,
+      content_ids: [product._id],
+      content_type: 'product',
+      value: (displaySalePrice ?? displayPrice) * quantity,
+      currency: 'BDT',
+      quantity,
+    };
+    const trackingUser = { em: session?.user?.email || undefined, fn: session?.user?.name || undefined };
+    fbEvent('AddToCart', addToCartPayload, trackingUser);
+    ttEvent('AddToCart', addToCartPayload, trackingUser);
     toast.success(`${t('store.product.added_to_cart') as string || 'Added to cart'} ${product.name}`);
     return true;
   };

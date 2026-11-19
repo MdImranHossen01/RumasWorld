@@ -35,7 +35,8 @@ import {
   Search,
   Share2,
   Plus,
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from 'lucide-react';
 import { AdminTableSkeleton } from '@/components/admin/AdminSkeletons';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -206,6 +207,11 @@ function OrdersContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [settings, setSettings] = useState<any>(null);
+  const [isSyncingCouriers, setIsSyncingCouriers] = useState(false);
+
+  const isSteadfastConfigured = Boolean(settings?.courierConfig?.steadfast?.apiKey && settings?.courierConfig?.steadfast?.secretKey);
+  const isPathaoConfigured = Boolean(settings?.courierConfig?.pathao?.clientId && settings?.courierConfig?.pathao?.clientSecret);
+  const isRedxConfigured = Boolean(settings?.courierConfig?.redx?.apiKey);
 
   // Manual Order states
   const [isManualOrderOpen, setIsManualOrderOpen] = useState(false);
@@ -617,6 +623,98 @@ function OrdersContent() {
     }
   };
 
+  const handleSendToPathao = async (ids: string[]) => {
+    if (ids.length === 0) return;
+
+    const result = await Swal.fire({
+      title: 'Send to Pathao?',
+      text: `Are you sure you want to send ${ids.length} order(s) to Pathao Courier?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      confirmButtonText: 'Yes, send to Pathao!'
+    });
+
+    if (!result.isConfirmed) return;
+
+    setBulkActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/courier/pathao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: ids }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || 'Orders sent to Pathao successfully');
+        if (ids.length > 1) setSelectedIds([]);
+        fetchOrders();
+      } else {
+        toast.error(data.message || 'Pathao submission failed');
+      }
+    } catch {
+      toast.error('Error sending to Pathao');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleSendToRedx = async (ids: string[]) => {
+    if (ids.length === 0) return;
+
+    const result = await Swal.fire({
+      title: 'Send to RedX?',
+      text: `Are you sure you want to send ${ids.length} order(s) to RedX Courier?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      confirmButtonText: 'Yes, send to RedX!'
+    });
+
+    if (!result.isConfirmed) return;
+
+    setBulkActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/courier/redx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: ids }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || 'Orders sent to RedX successfully');
+        if (ids.length > 1) setSelectedIds([]);
+        fetchOrders();
+      } else {
+        toast.error(data.message || 'RedX submission failed');
+      }
+    } catch {
+      toast.error('Error sending to RedX');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleSyncCourierStatus = async () => {
+    setIsSyncingCouriers(true);
+    try {
+      const res = await fetch('/api/cron/sync-courier-status', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || 'Courier statuses synced successfully');
+        fetchOrders();
+      } else {
+        toast.error(data.message || 'Failed to sync courier status');
+      }
+    } catch {
+      toast.error('Error syncing courier statuses');
+    } finally {
+      setIsSyncingCouriers(false);
+    }
+  };
+
   const handleCancelOrder = async (orderId: string) => {
     const result = await Swal.fire({
       title: 'Cancel Order?',
@@ -702,6 +800,18 @@ function OrdersContent() {
           >
             <Download className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("orders.export")}
           </Button>
+          {(isSteadfastConfigured || isPathaoConfigured || isRedxConfigured) && (
+            <Button
+              onClick={handleSyncCourierStatus}
+              disabled={isSyncingCouriers}
+              variant="outline"
+              className="font-bold text-xs sm:text-sm h-9 sm:h-10 px-3 shrink-0"
+              title="Sync delivery status from Steadfast, Pathao & RedX"
+            >
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isSyncingCouriers ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Sync Courier</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -980,14 +1090,41 @@ function OrdersContent() {
                 <Printer className="mr-1 h-3.5 w-3.5" /> <span className="hidden sm:inline">{t("orders.print_stickers")}</span><span className="sm:hidden">{t("orders.stickers")}</span>
               </Button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-orange-500 text-white hover:bg-orange-600 border-none text-xs py-1 h-8"
-                onClick={() => handleSendToSteadfast(selectedIds)}
-              >
-                <Truck className="mr-1 h-3.5 w-3.5" /> <span className="hidden sm:inline">{t("orders.send_to_steadfast")}</span><span className="sm:hidden">{t("orders.steadfast")}</span>
-              </Button>
+              {(!isPathaoConfigured && !isRedxConfigured || isSteadfastConfigured) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-orange-500 text-white hover:bg-orange-600 border-none text-xs py-1 h-8"
+                  onClick={() => handleSendToSteadfast(selectedIds)}
+                  disabled={bulkActionLoading}
+                >
+                  <Truck className="mr-1 h-3.5 w-3.5" /> <span className="hidden sm:inline">{t("orders.send_to_steadfast")}</span><span className="sm:hidden">{t("orders.steadfast")}</span>
+                </Button>
+              )}
+
+              {isPathaoConfigured && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-rose-600 text-white hover:bg-rose-700 border-none text-xs py-1 h-8"
+                  onClick={() => handleSendToPathao(selectedIds)}
+                  disabled={bulkActionLoading}
+                >
+                  <Truck className="mr-1 h-3.5 w-3.5" /> <span className="hidden sm:inline">Send to Pathao</span><span className="sm:hidden">Pathao</span>
+                </Button>
+              )}
+
+              {isRedxConfigured && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-red-600 text-white hover:bg-red-700 border-none text-xs py-1 h-8"
+                  onClick={() => handleSendToRedx(selectedIds)}
+                  disabled={bulkActionLoading}
+                >
+                  <Truck className="mr-1 h-3.5 w-3.5" /> <span className="hidden sm:inline">Send to RedX</span><span className="sm:hidden">RedX</span>
+                </Button>
+              )}
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1248,6 +1385,16 @@ function OrdersContent() {
                               <DropdownMenuItem onClick={() => handleSendToSteadfast([order._id])} disabled={!!order.shippingDetails?.consignmentId}>
                                 <Truck className="mr-2 h-4 w-4 text-orange-500" /> {t("orders.send_to_steadfast")}
                               </DropdownMenuItem>
+                              {isPathaoConfigured && (
+                                <DropdownMenuItem onClick={() => handleSendToPathao([order._id])} disabled={!!order.shippingDetails?.consignmentId}>
+                                  <Truck className="mr-2 h-4 w-4 text-rose-600" /> Send to Pathao
+                                </DropdownMenuItem>
+                              )}
+                              {isRedxConfigured && (
+                                <DropdownMenuItem onClick={() => handleSendToRedx([order._id])} disabled={!!order.shippingDetails?.consignmentId}>
+                                  <Truck className="mr-2 h-4 w-4 text-red-600" /> Send to RedX
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuGroup>
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
@@ -1488,6 +1635,16 @@ function OrdersContent() {
                              <DropdownMenuItem onClick={() => handleSendToSteadfast([order._id])} disabled={!!order.shippingDetails?.consignmentId}>
                                <Truck className="mr-2 h-4 w-4 text-orange-500" /> {t("orders.send_to_steadfast")}
                              </DropdownMenuItem>
+                             {isPathaoConfigured && (
+                               <DropdownMenuItem onClick={() => handleSendToPathao([order._id])} disabled={!!order.shippingDetails?.consignmentId}>
+                                 <Truck className="mr-2 h-4 w-4 text-rose-600" /> Send to Pathao
+                               </DropdownMenuItem>
+                             )}
+                             {isRedxConfigured && (
+                               <DropdownMenuItem onClick={() => handleSendToRedx([order._id])} disabled={!!order.shippingDetails?.consignmentId}>
+                                 <Truck className="mr-2 h-4 w-4 text-red-600" /> Send to RedX
+                               </DropdownMenuItem>
+                             )}
                            </DropdownMenuGroup>
                            <DropdownMenuSeparator />
                            <DropdownMenuGroup>

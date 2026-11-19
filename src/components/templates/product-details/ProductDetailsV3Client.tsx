@@ -12,6 +12,8 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { addToCart } from '@/store/slices/cartSlice';
 import { toggleWishlist } from '@/store/slices/wishlistSlice';
 import { toast } from 'sonner';
+import { ttEvent } from '@/lib/tiktok';
+import { fbEvent } from '@/lib/fpixel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,6 +113,19 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
   const displaySalePrice = hasDiscount ? Number(rawSalePrice) : undefined;
   const displayStock = hasVariants ? (currentVariant?.stock ?? 0) : (product.stock ?? 0);
 
+  useEffect(() => {
+    if (!product?._id) return;
+    const viewPayload = {
+      content_name: product.name,
+      content_ids: [product._id],
+      content_type: 'product',
+      value: product.salePrice ?? product.price ?? 0,
+      currency: 'BDT',
+    };
+    fbEvent('ViewContent', viewPayload);
+    ttEvent('ViewContent', viewPayload);
+  }, [product._id, product.name, product.salePrice, product.price]);
+
   const handleAddToCart = () => {
     if (displayStock <= 0) return toast.error(t('store.product.out_of_stock') as string || 'Selection Unavailable');
     dispatch(addToCart({
@@ -123,6 +138,17 @@ export default function ProductDetailsV3Client({ product }: ProductDetailsV3Clie
       color: currentColor || undefined,
       size: currentSize || undefined
     }));
+    const addToCartPayload = {
+      content_name: product.name,
+      content_ids: [product._id],
+      content_type: 'product',
+      value: (displaySalePrice || displayPrice) * quantity,
+      currency: 'BDT',
+      quantity,
+    };
+    const trackingUser = { em: session?.user?.email || undefined, fn: session?.user?.name || undefined };
+    fbEvent('AddToCart', addToCartPayload, trackingUser);
+    ttEvent('AddToCart', addToCartPayload, trackingUser);
     toast.success(`${product.name} ${t('store.product.added_to_cart') || 'initialized in cart'}`);
   };
 

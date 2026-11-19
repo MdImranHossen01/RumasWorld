@@ -13,25 +13,29 @@ export default function ProductSalesReportPage() {
   const [view, setView] = useState<'top' | 'low'>('top');
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/reports/product-sales?view=${view}&limit=50`);
-      if (res.ok) {
-        const json = await res.json();
-        setItems(json.items || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch product sales report:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetchProducts();
-  }, [view]);
+    let active = true;
+    const loadProducts = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/reports/product-sales?view=${view}&limit=50`);
+        if (res.ok && active) {
+          const json = await res.json();
+          setItems(json.items || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch product sales report:', error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadProducts();
+    return () => {
+      active = false;
+    };
+  }, [view, refreshKey]);
 
   const handlePrint = () => {
     window.print();
@@ -81,7 +85,7 @@ export default function ProductSalesReportPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={fetchProducts} disabled={loading} className="h-9 px-2.5">
+            <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)} disabled={loading} className="h-9 px-2.5">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
 

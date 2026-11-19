@@ -520,6 +520,21 @@ export async function POST(req: NextRequest) {
       console.error('Failed to revalidate products cache:', e);
     }
 
+    // Dispatch Admin Notification & Desktop/Mobile Web Push
+    try {
+      const { createAdminNotification } = await import('@/lib/notifications');
+      const totalItemCount = validatedItems.reduce((sum, item) => sum + item.quantity, 0);
+      await createAdminNotification({
+        title: `🎉 নতুন অর্ডার এসেছে! (#${newOrder.shortId})`,
+        message: `${shippingAddress.fullName} (${shippingAddress.phone}) — ৳${baseTotal.toLocaleString()} (${totalItemCount}টি আইটেম, ${paymentMethod})`,
+        type: 'order',
+        link: '/admin/orders',
+        sendPush: true,
+      });
+    } catch (notifErr) {
+      console.error('Failed to dispatch order notification:', notifErr);
+    }
+
     return NextResponse.json(newOrder, { status: 201 });
 
   } catch (error: any) {

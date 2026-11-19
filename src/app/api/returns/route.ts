@@ -171,6 +171,20 @@ export async function POST(req: NextRequest) {
       await dbSession.commitTransaction();
       dbSession.endSession();
 
+      // Log Admin Notification for processed product return
+      try {
+        const { createAdminNotification } = await import('@/lib/notifications');
+        await createAdminNotification({
+          title: `↩️ Product Return Processed (${returnId})`,
+          message: `${customerName || 'Customer'} (${sourceNameForLedger}) — Refund: ৳${(Number(refundAmount) || 0).toLocaleString()}. Reason: ${reason}`,
+          type: 'return',
+          link: '/admin/returns',
+          sendPush: true,
+        });
+      } catch (notifErr) {
+        console.error('Failed to dispatch return notification:', notifErr);
+      }
+
       return NextResponse.json(newReturn, { status: 201 });
     } catch (transactionError: any) {
       await dbSession.abortTransaction();

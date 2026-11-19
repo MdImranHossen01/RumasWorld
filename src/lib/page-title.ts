@@ -1,5 +1,6 @@
 const routeTranslationMap: Record<string, string> = {
   '/admin/dashboard': 'sidebar.dashboard',
+  '/admin/notifications': 'sidebar.notifications',
   '/admin/products': 'sidebar.all_products',
   '/admin/products/new': 'sidebar.add_product',
   '/admin/upcoming-expiry': 'sidebar.upcoming_expire',

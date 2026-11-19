@@ -103,6 +103,17 @@ export const ttEvent = (
 
   // 2. Server-side Events API Tracking
   if (typeof window !== "undefined") {
+    let ttp: string | undefined;
+    let ttclid: string | undefined;
+    try {
+      const cookieMatch = document.cookie.match(/(?:^|;\s*)_ttp=([^;]+)/);
+      if (cookieMatch) ttp = decodeURIComponent(cookieMatch[1]);
+      const urlParams = new URLSearchParams(window.location.search);
+      ttclid = urlParams.get("ttclid") || undefined;
+    } catch {
+      // ignore cookie/url parse errors
+    }
+
     fetch("/api/tiktok/event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -111,6 +122,8 @@ export const ttEvent = (
         eventUrl: window.location.href,
         userAgent: navigator.userAgent,
         eventId,
+        ttp,
+        ttclid,
         userData, // Hashing is handled server-side
         customData: ttBrowserPayload,
       }),

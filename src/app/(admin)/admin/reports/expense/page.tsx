@@ -58,31 +58,36 @@ export default function ExpenseReportPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const fetchExpenses = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        search: debouncedSearch,
-        category: selectedCategory,
-        ...(dateRange.from && { from: dateRange.from }),
-        ...(dateRange.to && { to: dateRange.to })
-      });
-      const res = await fetch(`/api/admin/reports/expense?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setExpenses(json.expenses || []);
-        setTotalExpense(json.totalExpenseAmount || 0);
-      }
-    } catch (error) {
-      console.error('Failed to fetch expense report:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetchExpenses();
-  }, [debouncedSearch, selectedCategory, dateRange]);
+    let active = true;
+    const loadExpenses = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          search: debouncedSearch,
+          category: selectedCategory,
+          ...(dateRange.from && { from: dateRange.from }),
+          ...(dateRange.to && { to: dateRange.to })
+        });
+        const res = await fetch(`/api/admin/reports/expense?${params.toString()}`);
+        if (res.ok && active) {
+          const json = await res.json();
+          setExpenses(json.expenses || []);
+          setTotalExpense(json.totalExpenseAmount || 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch expense report:', error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadExpenses();
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, selectedCategory, dateRange, refreshKey]);
 
   const handlePrint = () => {
     window.print();
@@ -105,7 +110,7 @@ export default function ExpenseReportPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchExpenses} disabled={loading} className="h-9">
+          <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)} disabled={loading} className="h-9">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
 

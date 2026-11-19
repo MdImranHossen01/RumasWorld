@@ -23,26 +23,31 @@ export default function ItemProfitReportPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const fetchItemProfit = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      const res = await fetch(`/api/admin/reports/item-profit?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setItems(json.items || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch item profit report:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetchItemProfit();
-  }, [debouncedSearch]);
+    let active = true;
+    const loadItemProfit = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (debouncedSearch) params.set('search', debouncedSearch);
+        const res = await fetch(`/api/admin/reports/item-profit?${params.toString()}`);
+        if (res.ok && active) {
+          const json = await res.json();
+          setItems(json.items || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch item profit report:', error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadItemProfit();
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, refreshKey]);
 
   const handlePrint = () => {
     window.print();
@@ -64,7 +69,7 @@ export default function ItemProfitReportPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchItemProfit} disabled={loading} className="h-9 px-2.5">
+          <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)} disabled={loading} className="h-9 px-2.5">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
 

@@ -26,36 +26,44 @@ export default function OrderProfitReportPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '25',
-        search: debouncedSearch,
-        ...(dateRange.from && { from: dateRange.from }),
-        ...(dateRange.to && { to: dateRange.to })
-      });
-      const res = await fetch(`/api/admin/reports/order-profit?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setOrders(json.orders || []);
-        setTotalPages(json.totalPages || 1);
+  const filterKey = `${debouncedSearch}|${dateRange.from}|${dateRange.to}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    if (page !== 1) setPage(1);
+  }
+
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const loadOrders = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: '25',
+          search: debouncedSearch,
+          ...(dateRange.from && { from: dateRange.from }),
+          ...(dateRange.to && { to: dateRange.to })
+        });
+        const res = await fetch(`/api/admin/reports/order-profit?${params.toString()}`);
+        if (res.ok && active) {
+          const json = await res.json();
+          setOrders(json.orders || []);
+          setTotalPages(json.totalPages || 1);
+        }
+      } catch (error) {
+        console.error('Failed to fetch order profit report:', error);
+      } finally {
+        if (active) setLoading(false);
       }
-    } catch (error) {
-      console.error('Failed to fetch order profit report:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, dateRange.from, dateRange.to]);
-
-  useEffect(() => {
-    fetchOrders();
-  }, [page, debouncedSearch, dateRange]);
+    };
+    void loadOrders();
+    return () => {
+      active = false;
+    };
+  }, [page, debouncedSearch, dateRange, refreshKey]);
 
   const handlePrint = () => {
     window.print();
@@ -77,7 +85,7 @@ export default function OrderProfitReportPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchOrders} disabled={loading} className="h-9 px-2.5">
+          <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)} disabled={loading} className="h-9 px-2.5">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
 

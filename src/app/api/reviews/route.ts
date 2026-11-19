@@ -88,6 +88,21 @@ export async function POST(req: NextRequest) {
       numReviews
     });
 
+    // Notify Admin of new customer review
+    try {
+      const { createAdminNotification } = await import('@/lib/notifications');
+      const shortComment = comment.length > 90 ? `${comment.slice(0, 90)}...` : comment;
+      await createAdminNotification({
+        title: `⭐ New ${rating}-Star Product Review`,
+        message: `${session.user.name || 'Customer'} reviewed: "${shortComment}"`,
+        type: 'review',
+        link: '/admin/reviews',
+        sendPush: true,
+      });
+    } catch (notifErr) {
+      console.error('Failed to dispatch review notification:', notifErr);
+    }
+
     return NextResponse.json(newReview, { status: 201 });
   } catch (error) {
     console.error('Submit Review Error:', error);

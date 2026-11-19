@@ -6,10 +6,14 @@ export function PWARegistry() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       if (process.env.NODE_ENV !== 'production') {
-        // Unregister existing service workers in development to prevent caching issues
+        // Unregister only caching service worker (/sw.js) in development; keep /push-sw.js for push testing
         navigator.serviceWorker.getRegistrations()
           .then((registrations) => {
-            return Promise.all(registrations.map(r => r.unregister().catch(err => console.error('Error unregistering service worker:', err))));
+            return Promise.all(
+              registrations
+                .filter(r => !r.active?.scriptURL?.includes('push-sw.js'))
+                .map(r => r.unregister().catch(err => console.error('Error unregistering service worker:', err)))
+            );
           })
           .catch(err => console.error('Error getting service worker registrations:', err));
         return;

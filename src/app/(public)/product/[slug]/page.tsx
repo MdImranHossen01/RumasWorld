@@ -52,8 +52,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   const safeTitle = product.metaTitle?.trim() ? product.metaTitle.trim() : product.name;
   const safeDescription = product.metaDescription?.trim() ? product.metaDescription.trim() : cleanDescription;
-  const mainImage = product.images?.[0] ? [{ url: product.images[0] }] : [];
-  const twitterImage = product.images?.[0] ? [product.images[0]] : [];
+  const primaryImageUrl =
+    product.images?.[0] ||
+    product.variants?.find((v: any) => v.images?.length > 0)?.images?.[0] ||
+    product.variants?.[0]?.image ||
+    '';
+  const mainImage = primaryImageUrl ? [{ url: primaryImageUrl }] : [];
+  const twitterImage = primaryImageUrl ? [primaryImageUrl] : [];
   const siteName = settings?.brandName || 'Online Shop';
 
   return {

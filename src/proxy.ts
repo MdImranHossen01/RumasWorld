@@ -33,6 +33,7 @@ export const proxy = auth(async (req) => {
     if (role === "manager") {
       const allowedPaths = [
         "/admin/dashboard",
+        "/admin/notifications",
         "/admin/products",
         "/admin/categories",
         "/admin/brands",
@@ -91,6 +92,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico, sitemap.xml, robots.txt, manifest, sw.js, and static file extensions
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json|manifest.webmanifest|sw.js|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|css|js)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json|manifest.webmanifest|sw.js|push-sw.js|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|css|js)$).*)',
   ],
 };

@@ -14,6 +14,8 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { addToCart } from '@/store/slices/cartSlice';
 import { toggleWishlist } from '@/store/slices/wishlistSlice';
 import { toast } from 'sonner';
+import { ttEvent } from '@/lib/tiktok';
+import { fbEvent } from '@/lib/fpixel';
 import Swal from 'sweetalert2';
 import {
   DropdownMenu,
@@ -107,6 +109,20 @@ export default function ProductCardV5({ product: initialProduct, isFlashSale }: 
       quantity: 1,
       image: product.images?.[0]
     }));
+    const addToCartPayload = {
+      content_name: product.name,
+      content_ids: [product._id],
+      content_type: 'product',
+      value: product.salePrice ?? product.price,
+      currency: 'BDT',
+      quantity: 1,
+    };
+    const trackingUser = {
+      em: session?.user?.email || undefined,
+      fn: session?.user?.name || undefined,
+    };
+    fbEvent('AddToCart', addToCartPayload, trackingUser);
+    ttEvent('AddToCart', addToCartPayload, trackingUser);
     toast.success(`${product.name} added to cart`);
   };
 

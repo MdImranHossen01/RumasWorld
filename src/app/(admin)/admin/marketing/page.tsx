@@ -18,7 +18,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Truck, CreditCard, Globe, X, BarChart3, Settings2, Landmark } from 'lucide-react';
+import { Loader2, Truck, CreditCard, Globe, X, BarChart3, Settings2, Landmark, Send } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/ui/image-upload';
 import {
@@ -84,9 +85,13 @@ const marketingSettingsSchema = z.object({
       clientId: z.string().nullish().transform(val => val ?? ''),
       clientSecret: z.string().nullish().transform(val => val ?? ''),
       storeId: z.string().nullish().transform(val => val ?? ''),
+      username: z.string().nullish().transform(val => val ?? ''),
+      password: z.string().nullish().transform(val => val ?? ''),
+      isSandbox: z.boolean().nullish().transform(val => Boolean(val)),
     }).nullable().optional(),
     redx: z.object({
       apiKey: z.string().nullish().transform(val => val ?? ''),
+      isSandbox: z.boolean().nullish().transform(val => Boolean(val)),
     }).nullable().optional(),
     bdCourier: z.object({
       apiKey: z.string().nullish().transform(val => val ?? ''),
@@ -109,6 +114,41 @@ export default function MarketingSettingsPage() {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [testingTiktok, setTestingTiktok] = useState(false);
+
+  const handleTestTiktokEvent = async () => {
+    setTestingTiktok(true);
+    try {
+      const res = await fetch('/api/tiktok/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventName: 'ViewContent',
+          eventUrl: window.location.href,
+          userAgent: navigator.userAgent,
+          customData: {
+            currency: 'BDT',
+            value: 100,
+            content_type: 'product',
+            content_id: 'TEST-PRODUCT-01',
+            content_name: 'TikTok CAPI Test Event',
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`TikTok Server Event sent! Event ID: ${data.eventId}`);
+      } else if (data.skipped) {
+        toast.error(data.reason || data.details?.message || 'TikTok event skipped. Save Pixel ID & Access Token first.');
+      } else {
+        toast.error(data.error || 'Failed to send TikTok test event');
+      }
+    } catch {
+      toast.error('Network error while testing TikTok Events API');
+    } finally {
+      setTestingTiktok(false);
+    }
+  };
 
   const form = useForm<MarketingSettingsFormValues>({
     resolver: zodResolver(marketingSettingsSchema) as any,
@@ -138,8 +178,8 @@ export default function MarketingSettingsPage() {
       courierConfig: {
         activeProvider: 'none',
         steadfast: { apiKey: '', secretKey: '' },
-        pathao: { clientId: '', clientSecret: '', storeId: '' },
-        redx: { apiKey: '' },
+        pathao: { clientId: '', clientSecret: '', storeId: '', username: '', password: '', isSandbox: false },
+        redx: { apiKey: '', isSandbox: false },
         bdCourier: { apiKey: '' },
       },
       facebookDomainVerification: '',
@@ -220,9 +260,13 @@ export default function MarketingSettingsPage() {
                     clientId: result.data.courierConfig?.pathao?.clientId || '',
                     clientSecret: result.data.courierConfig?.pathao?.clientSecret || '',
                     storeId: result.data.courierConfig?.pathao?.storeId || '',
+                    username: result.data.courierConfig?.pathao?.username || '',
+                    password: result.data.courierConfig?.pathao?.password || '',
+                    isSandbox: Boolean(result.data.courierConfig?.pathao?.isSandbox),
                   },
                   redx: {
                     apiKey: result.data.courierConfig?.redx?.apiKey || '',
+                    isSandbox: Boolean(result.data.courierConfig?.redx?.isSandbox),
                   },
                   bdCourier: {
                     apiKey: result.data.courierConfig?.bdCourier?.apiKey || '',
@@ -692,73 +736,166 @@ export default function MarketingSettingsPage() {
                     />
                   </div>
 
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/20 p-4 rounded-2xl border">
-                    <div className="md:col-span-2 font-black text-xs uppercase opacity-50 mb-2">{t("marketing.provider_credentials")}</div>
-                    <FormField
-                      control={form.control}
-                      name="courierConfig.steadfast.apiKey"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel className="font-bold text-xs">{t("marketing.steadfast_api_key")}</FormLabel>
-                          <FormControl>
-                            <Input type="text" placeholder={t("marketing.steadfast_api_key") as string} {...field} className="h-10 rounded-lg border px-3 text-xs" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="courierConfig.steadfast.secretKey"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel className="font-bold text-xs">{t("marketing.steadfast_secret_key")}</FormLabel>
-                          <FormControl>
-                            <Input type="text" placeholder={t("marketing.steadfast_secret_key") as string} {...field} className="h-10 rounded-lg border px-3 text-xs" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="courierConfig.pathao.storeId"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel className="font-bold text-xs">{t("marketing.pathao_store_id")}</FormLabel>
-                          <FormControl>
-                            <Input placeholder={t("marketing.pathao_store_id") as string} {...field} className="h-10 rounded-lg border px-3 text-xs" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="courierConfig.redx.apiKey"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel className="font-bold text-xs">{t("marketing.redx_api_key")}</FormLabel>
-                          <FormControl>
-                            <Input type="text" placeholder={t("marketing.redx_api_key") as string} {...field} className="h-10 rounded-lg border px-3 text-xs" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="courierConfig.bdCourier.apiKey"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel className="font-bold text-xs">{t("marketing.bd_courier_api_key")}</FormLabel>
-                          <FormControl>
-                            <Input type="text" placeholder={t("marketing.bd_courier_api_key") as string} {...field} className="h-10 rounded-lg border px-3 text-xs" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <div className="md:col-span-2 space-y-5">
+                    {/* Steadfast Credentials */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/20 p-4 rounded-2xl border">
+                      <div className="md:col-span-2 font-black text-xs uppercase opacity-60">Steadfast Courier Credentials</div>
+                      <FormField
+                        control={form.control}
+                        name="courierConfig.steadfast.apiKey"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel className="font-bold text-xs">{t("marketing.steadfast_api_key")}</FormLabel>
+                            <FormControl>
+                              <Input type="text" placeholder={t("marketing.steadfast_api_key") as string} {...field} className="h-10 rounded-lg border px-3 text-xs" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="courierConfig.steadfast.secretKey"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel className="font-bold text-xs">{t("marketing.steadfast_secret_key")}</FormLabel>
+                            <FormControl>
+                              <Input type="text" placeholder={t("marketing.steadfast_secret_key") as string} {...field} className="h-10 rounded-lg border px-3 text-xs" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Pathao Credentials */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/20 p-4 rounded-2xl border">
+                      <div className="md:col-span-2 flex items-center justify-between">
+                        <span className="font-black text-xs uppercase opacity-60">Pathao Courier Credentials</span>
+                        <FormField
+                          control={form.control}
+                          name="courierConfig.pathao.isSandbox"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center gap-2 space-y-0">
+                              <FormLabel className="text-xs font-semibold text-muted-foreground">Sandbox Mode</FormLabel>
+                              <FormControl>
+                                <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="courierConfig.pathao.clientId"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel className="font-bold text-xs">Pathao Client ID</FormLabel>
+                            <FormControl>
+                              <Input type="text" placeholder="Enter Pathao Client ID" {...field} className="h-10 rounded-lg border px-3 text-xs" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="courierConfig.pathao.clientSecret"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel className="font-bold text-xs">Pathao Client Secret</FormLabel>
+                            <FormControl>
+                              <Input type="text" placeholder="Enter Pathao Client Secret" {...field} className="h-10 rounded-lg border px-3 text-xs" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="courierConfig.pathao.username"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel className="font-bold text-xs">Pathao Username (Email)</FormLabel>
+                            <FormControl>
+                              <Input type="text" placeholder="merchant@example.com" {...field} className="h-10 rounded-lg border px-3 text-xs" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="courierConfig.pathao.password"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel className="font-bold text-xs">Pathao Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="Enter Pathao Merchant Password" {...field} className="h-10 rounded-lg border px-3 text-xs" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="courierConfig.pathao.storeId"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2 md:col-span-2">
+                            <FormLabel className="font-bold text-xs">{t("marketing.pathao_store_id")}</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter Pathao Store ID (e.g. 12345)" {...field} className="h-10 rounded-lg border px-3 text-xs" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* RedX & BD Courier Credentials */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/20 p-4 rounded-2xl border">
+                      <div className="md:col-span-2 flex items-center justify-between">
+                        <span className="font-black text-xs uppercase opacity-60">RedX Courier &amp; Fraud Check</span>
+                        <FormField
+                          control={form.control}
+                          name="courierConfig.redx.isSandbox"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center gap-2 space-y-0">
+                              <FormLabel className="text-xs font-semibold text-muted-foreground">RedX Sandbox</FormLabel>
+                              <FormControl>
+                                <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="courierConfig.redx.apiKey"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel className="font-bold text-xs">{t("marketing.redx_api_key")}</FormLabel>
+                            <FormControl>
+                              <Input type="text" placeholder="Enter RedX API Access Token" {...field} className="h-10 rounded-lg border px-3 text-xs" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="courierConfig.bdCourier.apiKey"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel className="font-bold text-xs">{t("marketing.bd_courier_api_key")}</FormLabel>
+                            <FormControl>
+                              <Input type="text" placeholder={t("marketing.bd_courier_api_key") as string} {...field} className="h-10 rounded-lg border px-3 text-xs" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -846,7 +983,24 @@ export default function MarketingSettingsPage() {
                   </div>
 
                   <div className="border-t pt-6 mt-6">
-                    <h4 className="font-black text-xs uppercase opacity-50 mb-4">{t("marketing.tiktok_pixel_events_api")}</h4>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                      <h4 className="font-black text-xs uppercase opacity-50">{t("marketing.tiktok_pixel_events_api")}</h4>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleTestTiktokEvent}
+                        disabled={testingTiktok}
+                        className="h-8 text-xs gap-1.5"
+                      >
+                        {testingTiktok ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Send className="h-3.5 w-3.5" />
+                        )}
+                        Test Server Event
+                      </Button>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}

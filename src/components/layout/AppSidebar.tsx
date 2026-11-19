@@ -58,6 +58,11 @@ const data = {
           tKey: "sidebar.overview",
           url: "/admin/dashboard",
         },
+        {
+          title: "Notifications",
+          tKey: "sidebar.notifications",
+          url: "/admin/notifications",
+        },
       ],
     },
     {
@@ -487,12 +492,14 @@ function NavMainCollapsibleItem({
     ) || isUrlActive(item.url, pathname, searchParams, []);
 
   const [isOpen, setIsOpen] = React.useState(isParentActive);
+  const [prevIsParentActive, setPrevIsParentActive] = React.useState(isParentActive);
 
-  React.useEffect(() => {
+  if (isParentActive !== prevIsParentActive) {
+    setPrevIsParentActive(isParentActive);
     if (isParentActive) {
       setIsOpen(true);
     }
-  }, [isParentActive]);
+  }
 
   const parentLabel = t(item.tKey as string) || item.title;
 

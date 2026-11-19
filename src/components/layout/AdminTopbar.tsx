@@ -6,13 +6,12 @@ import {
   LogOut,
   Menu,
 } from 'lucide-react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { ModeToggle } from '@/components/mode-toggle';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +24,7 @@ import {
 
 import { usePathname } from 'next/navigation';
 import { getPageTitle } from '@/lib/page-title';
+import AdminNotificationPopover from '@/components/layout/AdminNotificationPopover';
 
 export default function AdminTopbar() {
   const { data: session } = useSession();
@@ -64,61 +64,62 @@ export default function AdminTopbar() {
         </div>
       </div>
 
-      {/* Mobile Right - Theme Toggle */}
-      <div className="flex items-center md:hidden z-10 -mr-2">
+      {/* Right Controls - Single mounted instance for both Mobile & Desktop */}
+      <div className="flex items-center gap-1.5 md:gap-3 z-10 -mr-2 md:mr-0">
+        <AdminNotificationPopover />
+        <div className="hidden md:flex">
+          <LanguageToggle />
+        </div>
         <ModeToggle />
-      </div>
 
-      <div className="hidden md:flex items-center gap-4">
-        <LanguageToggle />
-        <ModeToggle />
-
-        {session?.user ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger nativeButton={true} render={
-              <Button variant="secondary" size="icon" className="rounded-full overflow-hidden border border-primary/20">
-                {session.user.image ? (
-                  <Image
-                    src={session.user.image}
-                    alt={session.user.name || "Admin"}
-                    width={40}
-                    height={40}
-                    className="h-full w-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <User className="h-5 w-5" />
-                )}
-                <span className="sr-only">Toggle user menu</span>
-              </Button>
-            } />
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-bold leading-none">{session.user.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
-                      {session.user.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => signOut({ callbackUrl: window.location.origin })}
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>{t("topbar.log_out")}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Button variant="secondary" size="icon" className="rounded-full">
-            <User className="h-5 w-5" />
-            <span className="sr-only">Toggle user menu</span>
-          </Button>
-        )}
+        <div className="hidden md:flex">
+          {session?.user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger nativeButton={true} render={
+                <Button variant="secondary" size="icon" className="rounded-full overflow-hidden border border-primary/20">
+                  {session.user.image ? (
+                    <Image
+                      src={session.user.image}
+                      alt={session.user.name || "Admin"}
+                      width={40}
+                      height={40}
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <User className="h-5 w-5" />
+                  )}
+                  <span className="sr-only">Toggle user menu</span>
+                </Button>
+              } />
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-bold leading-none">{session.user.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
+                        {session.user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => signOut({ callbackUrl: window.location.origin })}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>{t("topbar.log_out")}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="secondary" size="icon" className="rounded-full">
+              <User className="h-5 w-5" />
+              <span className="sr-only">Toggle user menu</span>
+            </Button>
+          )}
+        </div>
       </div>
     </header>
   );

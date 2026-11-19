@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import GlobalSettings from '@/models/GlobalSettings';
-import { headers } from 'next/headers';
 
 async function hashData(data: string): Promise<string> {
     if (!data) return '';
@@ -14,28 +13,31 @@ async function hashData(data: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
     try {
-        const headersList = await headers();
-        const hostname = headersList.get('host') || 'localhost';
-        
         await connectToDatabase();
         const settings = await GlobalSettings.findOne().sort({ updatedAt: -1 }).lean();
 
-        const pixelId = settings?.tiktokPixelId;
-        const accessToken = settings?.tiktokAccessToken;
+        const pixelId = settings?.tiktokPixelId?.trim();
+        const accessToken = settings?.tiktokAccessToken?.trim();
 
-        if (!pixelId || !accessToken) {
+        if (!pixelId || !accessToken || pixelId === 'undefined' || pixelId === 'null') {
             // TikTok not configured — skip silently (not an error)
             return NextResponse.json({ skipped: true, reason: 'TikTok not configured' }, { status: 200 });
         }
 
         const body = await request.json();
-        const { 
-            eventName = 'PageView', 
-            eventUrl, 
-            userAgent, 
-            customData = {}, 
-            userData = {} 
+        const {
+            eventName = 'PageView',
+            eventUrl,
+            userAgent,
+            customData = {},
+            userData = {},
+            ttp: bodyTtp,
+            ttclid: bodyTtclid,
         } = body;
+
+        const ttpCookie = request.cookies.get('_ttp')?.value;
+        const ttp = bodyTtp || ttpCookie || undefined;
+        const ttclid = bodyTtclid || request.cookies.get('ttclid')?.value || undefined;
 
         // Get real client IP
         const ipAddress =
@@ -93,6 +95,8 @@ export async function POST(request: NextRequest) {
                     event_id: eventId,
                     user: {
                         ...ttUserData,
+                        ...(ttp && { ttp }),
+                        ...(ttclid && { ttclid }),
                         ip: ipAddress,
                         user_agent: userAgent,
                     },

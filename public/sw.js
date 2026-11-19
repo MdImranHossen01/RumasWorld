@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rumasworld-cache-v3';
+const CACHE_NAME = 'rumasworld-cache-v4';
 const OFFLINE_URL = '/offline';
 
 const ASSETS_TO_CACHE = [
@@ -151,3 +151,10 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Import Web Push Notification Handlers
+try {
+  importScripts('/push-sw.js');
+} catch (e) {
+  console.error('[SW] Failed to import push-sw.js:', e);
+}

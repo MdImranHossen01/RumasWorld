@@ -1132,6 +1132,7 @@ const translations = {
     "testimonials.verified_buyer": "Verified Buyer",
 
     "sidebar.overview": "Overview",
+    "sidebar.notifications": "Notifications",
     "sidebar.dashboard": "Dashboard",
     "sidebar.product_management": "Product Management",
     "sidebar.all_products": "All Products",
@@ -1495,6 +1496,7 @@ const translations = {
     "topbar.log_out": "লগ আউট",
 
     "sidebar.overview": "ওভারভিউ",
+    "sidebar.notifications": "নোটিফিকেশন",
     "sidebar.dashboard": "ড্যাশবোর্ড",
     "sidebar.product_management": "প্রোডাক্ট ম্যানেজমেন্ট",
     "sidebar.all_products": "সকল প্রোডাক্ট",

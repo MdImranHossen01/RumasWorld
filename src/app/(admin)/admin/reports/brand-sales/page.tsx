@@ -17,33 +17,35 @@ export default function BrandSalesReportPage() {
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear().toString());
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  const fetchBrandSales = async (signal?: AbortSignal) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/reports/brand-sales?month=${selectedMonth}&year=${selectedYear}`, { signal });
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      } else {
-        setData(null);
-        toast.error('Failed to load brand sales report');
-      }
-    } catch (error: any) {
-      if (error?.name === 'AbortError') return;
-      console.error('Failed to fetch brand sales report:', error);
-      setData(null);
-      toast.error('Failed to load brand sales report');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchBrandSales(controller.signal);
+    const loadBrandSales = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/reports/brand-sales?month=${selectedMonth}&year=${selectedYear}`, { signal: controller.signal });
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        } else {
+          setData(null);
+          toast.error('Failed to load brand sales report');
+        }
+      } catch (error: any) {
+        if (error?.name === 'AbortError') return;
+        console.error('Failed to fetch brand sales report:', error);
+        setData(null);
+        toast.error('Failed to load brand sales report');
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+    void loadBrandSales();
     return () => controller.abort();
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, refreshKey]);
 
   const handlePrint = () => {
     window.print();
@@ -109,7 +111,7 @@ export default function BrandSalesReportPage() {
             </SelectContent>
           </Select>
 
-          <Button variant="outline" size="sm" onClick={() => fetchBrandSales()} disabled={loading} className="h-9 px-2.5">
+          <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)} disabled={loading} className="h-9 px-2.5">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
 

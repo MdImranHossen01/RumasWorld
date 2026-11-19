@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { ttEvent } from '@/lib/tiktok';
+import { fbEvent } from '@/lib/fpixel';
 import { ShoppingCart, Heart, Minus, Plus, Star, MoreVertical, Edit, Trash2, Settings, Sparkles, Share2, ArrowRight, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -125,6 +127,19 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
   const displaySalePrice = hasDiscount ? Number(rawSalePrice) : undefined;
   const displayStock = hasVariants ? (currentVariant?.stock ?? 0) : (product.stock ?? 0);
 
+  useEffect(() => {
+    if (!product?._id) return;
+    const viewPayload = {
+      content_name: product.name,
+      content_ids: [product._id],
+      content_type: 'product',
+      value: product.salePrice ?? product.price ?? 0,
+      currency: 'BDT',
+    };
+    fbEvent('ViewContent', viewPayload);
+    ttEvent('ViewContent', viewPayload);
+  }, [product._id, product.name, product.salePrice, product.price]);
+
   const handleAddToCart = () => {
     if (displayStock <= 0) return toast.error('Unavailable');
     dispatch(addToCart({
@@ -137,6 +152,17 @@ export default function ProductDetailsV5Client({ product }: ProductDetailsV5Clie
       color: currentColor || undefined,
       size: currentSize || undefined
     }));
+    const addToCartPayload = {
+      content_name: product.name,
+      content_ids: [product._id],
+      content_type: 'product',
+      value: (displaySalePrice || displayPrice) * quantity,
+      currency: 'BDT',
+      quantity,
+    };
+    const trackingUser = { em: session?.user?.email || undefined, fn: session?.user?.name || undefined };
+    fbEvent('AddToCart', addToCartPayload, trackingUser);
+    ttEvent('AddToCart', addToCartPayload, trackingUser);
     toast.success(t('store.product.added_to_cart') as string || `Exclusive piece added to bag`);
   };
 

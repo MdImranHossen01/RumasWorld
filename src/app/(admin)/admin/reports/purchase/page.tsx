@@ -23,29 +23,34 @@ export default function PurchaseReportPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const fetchPurchases = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        search: debouncedSearch,
-        ...(dateRange.from && { from: dateRange.from }),
-        ...(dateRange.to && { to: dateRange.to })
-      });
-      const res = await fetch(`/api/admin/reports/purchase?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setPurchases(json.purchases || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch purchase report:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetchPurchases();
-  }, [debouncedSearch, dateRange]);
+    let active = true;
+    const loadPurchases = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          search: debouncedSearch,
+          ...(dateRange.from && { from: dateRange.from }),
+          ...(dateRange.to && { to: dateRange.to })
+        });
+        const res = await fetch(`/api/admin/reports/purchase?${params.toString()}`);
+        if (res.ok && active) {
+          const json = await res.json();
+          setPurchases(json.purchases || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch purchase report:', error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadPurchases();
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearch, dateRange, refreshKey]);
 
   const handlePrint = () => {
     window.print();
@@ -68,7 +73,7 @@ export default function PurchaseReportPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchPurchases} disabled={loading} className="h-9">
+          <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)} disabled={loading} className="h-9">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
 

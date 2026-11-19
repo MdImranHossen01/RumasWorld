@@ -14,25 +14,29 @@ export default function MonthlyReportPage() {
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear().toString());
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  const fetchMonthlyReport = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/reports/monthly?year=${selectedYear}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      }
-    } catch (error) {
-      console.error('Failed to fetch monthly report:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetchMonthlyReport();
-  }, [selectedYear]);
+    let active = true;
+    const loadMonthlyReport = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/reports/monthly?year=${selectedYear}`);
+        if (res.ok && active) {
+          const json = await res.json();
+          setData(json);
+        }
+      } catch (error) {
+        console.error('Failed to fetch monthly report:', error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadMonthlyReport();
+    return () => {
+      active = false;
+    };
+  }, [selectedYear, refreshKey]);
 
   const handlePrint = () => {
     window.print();
@@ -69,7 +73,7 @@ export default function MonthlyReportPage() {
             </SelectContent>
           </Select>
 
-          <Button variant="outline" size="sm" onClick={fetchMonthlyReport} disabled={loading} className="h-9">
+          <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)} disabled={loading} className="h-9">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
 

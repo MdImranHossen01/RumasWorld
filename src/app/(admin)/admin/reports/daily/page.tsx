@@ -16,33 +16,35 @@ export default function DailyReportPage() {
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear().toString());
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  const fetchDailyReport = async (signal?: AbortSignal) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/reports/daily?month=${selectedMonth}&year=${selectedYear}`, { signal });
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      } else {
-        setData(null);
-        toast.error('Failed to load daily report');
-      }
-    } catch (error: any) {
-      if (error?.name === 'AbortError') return;
-      console.error('Failed to fetch daily report:', error);
-      setData(null);
-      toast.error('Failed to load daily report');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchDailyReport(controller.signal);
+    const loadDailyReport = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/reports/daily?month=${selectedMonth}&year=${selectedYear}`, { signal: controller.signal });
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        } else {
+          setData(null);
+          toast.error('Failed to load daily report');
+        }
+      } catch (error: any) {
+        if (error?.name === 'AbortError') return;
+        console.error('Failed to fetch daily report:', error);
+        setData(null);
+        toast.error('Failed to load daily report');
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+    void loadDailyReport();
     return () => controller.abort();
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, refreshKey]);
 
   const handlePrint = () => {
     window.print();
@@ -107,7 +109,7 @@ export default function DailyReportPage() {
             </SelectContent>
           </Select>
 
-          <Button variant="outline" size="sm" onClick={() => fetchDailyReport()} disabled={loading} className="h-9">
+          <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)} disabled={loading} className="h-9">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
 
