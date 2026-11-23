@@ -30,7 +30,9 @@ import {
   ShieldCheck,
   UserCog,
   Trash2,
-  Search
+  Search,
+  Copy,
+  Download
 } from 'lucide-react';
 import { AdminTableSkeleton } from '@/components/admin/AdminSkeletons';
 import { normalizePhoneNumber } from '@/lib/utils';
@@ -178,6 +180,143 @@ function UsersContent() {
     setIsDetailsOpen(true);
   };
 
+  const getStoreDisplayName = () => {
+    if (process.env.NEXT_PUBLIC_STORE_NAME) return process.env.NEXT_PUBLIC_STORE_NAME;
+    if (typeof window !== 'undefined') {
+      return window.location.hostname.replace(/^www\./, '');
+    }
+    return 'Our Store';
+  };
+
+  const isRealEmail = (email?: string) => {
+    if (!email) return false;
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed.includes('@')) return false;
+    const guestDomain = (process.env.NEXT_PUBLIC_GUEST_EMAIL_DOMAIN || 'guest.com').toLowerCase();
+    if (
+      trimmed.endsWith(`@${guestDomain}`) ||
+      trimmed.includes('-guest.com') ||
+      trimmed.endsWith('@guest.local') ||
+      trimmed.endsWith('@noemail.local')
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  const handleSendEmail = (email?: string, name?: string) => {
+    if (!isRealEmail(email)) {
+      toast.error('No valid email address for this user');
+      return;
+    }
+    const storeName = getStoreDisplayName();
+    const subject = encodeURIComponent(`Update from ${storeName}`);
+    const greeting = name ? `Hello ${name},` : 'Hello,';
+    const body = encodeURIComponent(`${greeting}\n\n\n\nBest regards,\n${storeName}`);
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email!.trim())}&su=${subject}&body=${body}`;
+    window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyEmail = async (email?: string) => {
+    if (!email || !email.trim()) {
+      toast.error('No email address available');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(email.trim());
+      toast.success('Email address copied to clipboard');
+    } catch {
+      toast.error('Failed to copy email address');
+    }
+  };
+
+  const handleBulkSendEmail = async () => {
+    try {
+      let targetUsers = users;
+      if (totalCount > users.length) {
+        const searchEncoded = encodeURIComponent(debouncedSearchTerm);
+        const res = await fetch(`/api/admin/users?page=1&limit=${Math.max(totalCount, 5000)}&search=${searchEncoded}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.users)) {
+            targetUsers = data.users;
+          }
+        }
+      }
+      const validEmails = Array.from(
+        new Set(
+          targetUsers
+            .map((u) => (u.email || '').trim())
+            .filter((em) => isRealEmail(em))
+        )
+      );
+      if (validEmails.length === 0) {
+        toast.error('No valid email addresses found in this list');
+        return;
+      }
+      const storeName = getStoreDisplayName();
+      const subject = encodeURIComponent(`Update from ${storeName}`);
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(validEmails.join(','))}&su=${subject}`;
+      const opened = window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        try {
+          await navigator.clipboard.writeText(validEmails.join(', '));
+          toast.info(`Popup blocked by browser. Copied ${validEmails.length} emails to clipboard!`);
+        } catch {
+          toast.warning('Popup blocked by browser. Please allow popups for this site.');
+        }
+      }
+    } catch {
+      toast.error('Failed to open bulk email composer');
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      let targetUsers = users;
+      if (totalCount > users.length) {
+        const searchEncoded = encodeURIComponent(debouncedSearchTerm);
+        const res = await fetch(`/api/admin/users?page=1&limit=${Math.max(totalCount, 5000)}&search=${searchEncoded}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.users)) {
+            targetUsers = data.users;
+          }
+        }
+      }
+      if (targetUsers.length === 0) {
+        toast.error('No users available to export');
+        return;
+      }
+      const escapeCsv = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+      const headers = ['Name', 'Email', 'Phone', 'Role', 'Total Orders', 'Total Spent', 'Joined Date'];
+      const rows = targetUsers.map((u) =>
+        [
+          escapeCsv(u.name || ''),
+          escapeCsv(u.email || ''),
+          escapeCsv(u.phone || ''),
+          escapeCsv(u.role || ''),
+          escapeCsv(u.totalOrders || 0),
+          escapeCsv(u.totalSpent || 0),
+          escapeCsv(u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : ''),
+        ].join(',')
+      );
+      const csvString = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `users_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${targetUsers.length} users to CSV`);
+    } catch {
+      toast.error('Failed to export users');
+    }
+  };
+
   const handleUpdateRole = async (userId: string, newRole: string) => {
     const result = await Swal.fire({
       title: 'Change User Role?',
@@ -304,6 +443,24 @@ function UsersContent() {
           <p className="text-muted-foreground text-xs sm:text-sm font-medium">{t("users.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <Button
+            onClick={handleBulkSendEmail}
+            disabled={totalCount === 0}
+            variant="outline"
+            className="rounded-full px-4 h-10 sm:h-11 text-xs sm:text-sm font-semibold gap-2"
+          >
+            <Mail className="h-4 w-4" />
+            Send Email to All
+          </Button>
+          <Button
+            onClick={handleExportCSV}
+            disabled={totalCount === 0}
+            variant="outline"
+            className="rounded-full px-4 h-10 sm:h-11 text-xs sm:text-sm font-semibold gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
           {(isSuperAdmin || (session?.user as any)?.role === 'admin') && (
             <Button
               onClick={() => setIsAssignAdminOpen(true)}
@@ -467,6 +624,22 @@ function UsersContent() {
                           <DropdownMenuItem onClick={() => openUserDetails(user)} className="cursor-pointer">
                             <Eye className="mr-2 h-4 w-4" /> {t("bills.view_details")}
                           </DropdownMenuItem>
+                          {isRealEmail(user.email) && (
+                            <DropdownMenuItem
+                              onClick={() => handleSendEmail(user.email, user.name)}
+                              className="cursor-pointer"
+                            >
+                              <Mail className="mr-2 h-4 w-4 text-primary" /> Send Email
+                            </DropdownMenuItem>
+                          )}
+                          {user.email && (
+                            <DropdownMenuItem
+                              onClick={() => handleCopyEmail(user.email)}
+                              className="cursor-pointer"
+                            >
+                              <Copy className="mr-2 h-4 w-4" /> Copy Email
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuGroup>
 
                         <DropdownMenuSeparator />
@@ -612,6 +785,22 @@ function UsersContent() {
                         <DropdownMenuItem onClick={() => openUserDetails(user)} className="cursor-pointer">
                           <Eye className="mr-2 h-4 w-4" /> {t("bills.view_details")}
                         </DropdownMenuItem>
+                        {isRealEmail(user.email) && (
+                          <DropdownMenuItem
+                            onClick={() => handleSendEmail(user.email, user.name)}
+                            className="cursor-pointer"
+                          >
+                            <Mail className="mr-2 h-4 w-4 text-primary" /> Send Email
+                          </DropdownMenuItem>
+                        )}
+                        {user.email && (
+                          <DropdownMenuItem
+                            onClick={() => handleCopyEmail(user.email)}
+                            className="cursor-pointer"
+                          >
+                            <Copy className="mr-2 h-4 w-4" /> Copy Email
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuGroup>
 
                       <DropdownMenuSeparator />
