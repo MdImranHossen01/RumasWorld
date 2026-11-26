@@ -538,7 +538,7 @@ function NavMainCollapsibleItem({
               return (
                 <SidebarMenuSubItem key={subItem.title}>
                   <SidebarMenuSubButton
-                    render={<Link href={subItem.url} onClick={(e) => handleItemClick(e, subItem.url)} />}
+                    render={<Link prefetch={false} href={subItem.url} onClick={(e) => handleItemClick(e, subItem.url)} />}
                     isActive={isSubActive}
                     className={`h-8 rounded-lg px-3 text-xs transition-all duration-150 ${
                       isSubActive

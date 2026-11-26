@@ -96,12 +96,8 @@ export default function AdminNotificationPopover() {
       }
     };
     void load();
-    const interval = setInterval(() => {
-      void load();
-    }, 20000);
     return () => {
       active = false;
-      clearInterval(interval);
     };
   }, []);
 
