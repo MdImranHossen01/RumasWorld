@@ -240,7 +240,7 @@ export default function AdminNotificationPopover() {
               Queues Requiring Action
             </p>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <Link
+              <Link prefetch={false}
                 href="/admin/orders"
                 onClick={() => setOpen(false)}
                 className="flex items-center justify-between p-2 rounded-lg bg-card hover:bg-primary/[0.06] border border-border/60 transition-colors"
@@ -256,7 +256,7 @@ export default function AdminNotificationPopover() {
                 </Badge>
               </Link>
 
-              <Link
+              <Link prefetch={false}
                 href="/admin/abandoned-carts"
                 onClick={() => setOpen(false)}
                 className="flex items-center justify-between p-2 rounded-lg bg-card hover:bg-primary/[0.06] border border-border/60 transition-colors"
@@ -272,7 +272,7 @@ export default function AdminNotificationPopover() {
                 </Badge>
               </Link>
 
-              <Link
+              <Link prefetch={false}
                 href="/admin/low-stock"
                 onClick={() => setOpen(false)}
                 className="flex items-center justify-between p-2 rounded-lg bg-card hover:bg-primary/[0.06] border border-border/60 transition-colors"
@@ -288,7 +288,7 @@ export default function AdminNotificationPopover() {
                 </Badge>
               </Link>
 
-              <Link
+              <Link prefetch={false}
                 href="/admin/low-stock"
                 onClick={() => setOpen(false)}
                 className="flex items-center justify-between p-2 rounded-lg bg-card hover:bg-primary/[0.06] border border-border/60 transition-colors"
@@ -369,7 +369,7 @@ export default function AdminNotificationPopover() {
               Alert Settings
             </Button>
 
-            <Link
+            <Link prefetch={false}
               href="/admin/notifications"
               onClick={() => setOpen(false)}
               className="inline-flex items-center justify-center gap-1 text-xs font-semibold text-primary hover:underline pr-1"
