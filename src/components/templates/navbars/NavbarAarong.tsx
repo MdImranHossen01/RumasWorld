@@ -737,6 +737,15 @@ export default function NavbarAarong() {
                       </div>
                     );
                   })}
+                  <div className="py-1">
+                    <Link
+                      href="/shop"
+                      onClick={handleCloseMegaMenu}
+                      className="text-[12px] xl:text-[13px] font-medium uppercase tracking-[0.14em] text-foreground/85 hover:text-primary transition-colors flex items-center whitespace-nowrap"
+                    >
+                      Shop
+                    </Link>
+                  </div>
                 </nav>
               </div>
 
@@ -1218,6 +1227,15 @@ export default function NavbarAarong() {
                         </div>
                       );
                     })}
+                    <div className="py-0.5">
+                      <Link
+                        href="/shop"
+                        onClick={handleCloseMegaMenu}
+                        className="text-[12px] xl:text-[13px] font-medium uppercase tracking-[0.14em] text-foreground/85 hover:text-primary transition-colors flex items-center whitespace-nowrap"
+                      >
+                        Shop
+                      </Link>
+                    </div>
                   </nav>
                 </div>
 
